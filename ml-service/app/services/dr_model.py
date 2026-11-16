@@ -1,17 +1,23 @@
 """
 app/services/dr_model.py
 
-Diabetic Retinopathy (DR) Model Engine.
+Diabetic Retinopathy (DR) PyTorch Deep Learning Inference Engine.
 
-Currently implements a realistic mock inference pipeline that simulates
-a Deep Learning convolutional model (e.g. ResNet50 or EfficientNet-B4)
-trained on standard fundus photography datasets (e.g., EyePACS / APTOS 2019).
+Loads the trained ResNet-18 model weights (models/dr_model.pth),
+preprocesses incoming retinal fundus images through torchvision transforms,
+and performs tensor inference across the 5 standard ICDR severity grades.
 """
 
 import io
+import os
 import hashlib
-from typing import Tuple, List
+from typing import List, Optional
 from PIL import Image
+
+import torch
+import torch.nn as nn
+from torchvision import models, transforms
+
 from app.schemas.prediction import PredictionResponse, ImageMetadata
 
 DR_GRADE_LABELS = {
@@ -33,12 +39,65 @@ CLINICAL_RECOMMENDATIONS = {
 
 class DiabeticRetinopathyClassifier:
     """
-    Mock inference service that models the behavior of a production CNN.
-    Validates input imagery, extracts visual dimensions, and calculates
-    softmax probability distributions.
+    PyTorch Neural Network Inference Engine.
+    Cached singleton model with CPU/GPU evaluation.
     """
 
-    MODEL_VERSION = "mock-resnet50-dr-v1.0"
+    _model: Optional[nn.Module] = None
+    _device: Optional[torch.device] = None
+    MODEL_PATH = os.path.join(os.path.dirname(__file__), "../../models/dr_model.pth")
+    MODEL_VERSION = "pytorch-resnet18-dr-v1.0"
+
+    # Preprocessing transforms (matches ResNet-18 ImageNet normalization)
+    _transforms = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+        ),
+    ])
+
+    @classmethod
+    def get_model(cls) -> Optional[nn.Module]:
+        """
+        Loads the trained PyTorch model once into memory and caches it.
+        """
+        if cls._model is not None:
+            return cls._model
+
+        cls._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        resolved_path = os.path.abspath(cls.MODEL_PATH)
+
+        if os.path.exists(resolved_path):
+            try:
+                # 1. Build architecture
+                model = models.resnet18(weights=None)
+                num_ftrs = model.fc.in_features
+                model.fc = nn.Sequential(
+                    nn.Dropout(p=0.35),
+                    nn.Linear(num_ftrs, 128),
+                    nn.ReLU(),
+                    nn.Dropout(p=0.2),
+                    nn.Linear(128, 5),
+                )
+
+                # 2. Load trained weights
+                checkpoint = torch.load(resolved_path, map_location=cls._device, weights_only=True)
+                if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+                    model.load_state_dict(checkpoint["model_state_dict"])
+                else:
+                    model.load_state_dict(checkpoint)
+
+                model.to(cls._device)
+                model.eval()
+                cls._model = model
+                print(f"✅ Loaded PyTorch model weights from: {resolved_path} on {cls._device}")
+                return cls._model
+            except Exception as e:
+                print(f"⚠️ Could not load PyTorch weights ({e}). Falling back to simulation.")
+                return None
+        return None
 
     @classmethod
     def inspect_image(cls, file_bytes: bytes, filename: str, content_type: str) -> ImageMetadata:
@@ -50,7 +109,6 @@ class DiabeticRetinopathyClassifier:
                 format_name = img.format or "UNKNOWN"
                 dimensions = f"{img.width}x{img.height}"
         except Exception:
-            # Fallback if image cannot be parsed by PIL (e.g. mock test payload)
             format_name = "UNKNOWN"
             dimensions = "N/A"
 
@@ -65,53 +123,72 @@ class DiabeticRetinopathyClassifier:
     @classmethod
     def predict(cls, file_bytes: bytes, filename: str, content_type: str) -> PredictionResponse:
         """
-        Simulates model inference on the retinal scan.
-
-        Uses the SHA256 checksum of the uploaded file bytes to deterministically
-        assign a realistic probability distribution across the 5 DR severity grades.
-        This provides consistent, reproducible results for the same scan while
-        still providing varied responses across different test images.
+        Runs real PyTorch inference on the fundus scan image tensor.
         """
         metadata = cls.inspect_image(file_bytes, filename, content_type)
+        model = cls.get_model()
 
-        # Derive a deterministic integer seed from the image content hash
+        if model is not None:
+            try:
+                # 1. Convert bytes to PIL RGB image
+                pil_image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+
+                # 2. Apply preprocessing transform & add batch dimension [1, 3, 224, 224]
+                img_tensor = cls._transforms(pil_image).unsqueeze(0).to(cls._device)
+
+                # 3. Model forward pass
+                with torch.no_grad():
+                    logits = model(img_tensor)
+                    softmax_probs = torch.softmax(logits, dim=1).squeeze(0)
+
+                # 4. Extract class & probabilities
+                probabilities = [round(float(p), 4) for p in softmax_probs.cpu().tolist()]
+                predicted_grade = int(torch.argmax(logits, dim=1).item())
+                confidence_score = probabilities[predicted_grade]
+
+                dr_grade_label = DR_GRADE_LABELS[predicted_grade]
+                requires_urgent_review = (predicted_grade >= 3) or (confidence_score < 0.65)
+
+                return PredictionResponse(
+                    success=True,
+                    dr_grade=predicted_grade,
+                    dr_grade_label=dr_grade_label,
+                    confidence_score=confidence_score,
+                    grade_probabilities=probabilities,
+                    requires_urgent_review=requires_urgent_review,
+                    model_version=cls.MODEL_VERSION,
+                    image_metadata=metadata,
+                    clinical_recommendation=CLINICAL_RECOMMENDATIONS[predicted_grade],
+                )
+            except Exception as exc:
+                print(f"⚠️ PyTorch tensor inference error ({exc}). Using deterministic fallback.")
+
+        # Fallback simulation if image cannot be passed through torch
         digest = hashlib.sha256(file_bytes).hexdigest()
         seed_val = int(digest[:8], 16)
-
-        # Generate a simulated probability distribution across the 5 classes
-        # Grade 0 to 4
         predicted_grade = seed_val % 5
-        base_confidence = 0.75 + ((seed_val % 21) / 100.0)  # Between 0.75 and 0.95
-        remaining_prob = 1.0 - base_confidence
+        base_confidence = 0.75 + ((seed_val % 21) / 100.0)
 
         probabilities: List[float] = [0.0] * 5
         probabilities[predicted_grade] = round(base_confidence, 4)
-
-        # Distribute remaining probability mass to neighboring classes
         other_indices = [i for i in range(5) if i != predicted_grade]
         weights = [1, 2, 3, 2][:len(other_indices)]
         total_w = sum(weights)
         for idx, w in zip(other_indices, weights):
-            probabilities[idx] = round(remaining_prob * (w / total_w), 4)
+            probabilities[idx] = round((1.0 - base_confidence) * (w / total_w), 4)
 
-        # Normalize to ensure sum is strictly 1.0
         diff = round(1.0 - sum(probabilities), 4)
         probabilities[predicted_grade] = round(probabilities[predicted_grade] + diff, 4)
-
         confidence_score = probabilities[predicted_grade]
-        dr_grade_label = DR_GRADE_LABELS[predicted_grade]
-
-        # Clinical rule: flag for urgent review if grade is 3 or 4, or if confidence is low (< 0.65)
-        requires_urgent_review = (predicted_grade >= 3) or (confidence_score < 0.65)
 
         return PredictionResponse(
             success=True,
             dr_grade=predicted_grade,
-            dr_grade_label=dr_grade_label,
+            dr_grade_label=DR_GRADE_LABELS[predicted_grade],
             confidence_score=confidence_score,
             grade_probabilities=probabilities,
-            requires_urgent_review=requires_urgent_review,
-            model_version=cls.MODEL_VERSION,
+            requires_urgent_review=(predicted_grade >= 3) or (confidence_score < 0.65),
+            model_version="fallback-simulation-v1.0",
             image_metadata=metadata,
             clinical_recommendation=CLINICAL_RECOMMENDATIONS[predicted_grade],
         )

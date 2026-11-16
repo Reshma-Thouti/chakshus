@@ -1,0 +1,16 @@
+{
+  "model_name": "Diabetic Retinopathy ResNet-18",
+  "weights_file": "dr_model.pth",
+  "final_val_acc": 0.98,
+  "epochs": 5,
+  "classes": [
+    "No DR",
+    "Mild NPDR",
+    "Moderate NPDR",
+    "Severe NPDR",
+    "Proliferative DR"
+  ],
+  "framework": "PyTorch 2.15.0+cpu",
+  "device": "cpu",
+  "timestamp": "2026-11-16 13:30:05"
+}
