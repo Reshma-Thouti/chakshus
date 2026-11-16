@@ -141,7 +141,7 @@ const dailyHealthLogSchema = new mongoose.Schema(
      */
     entrySource: {
       type: String,
-      enum: ['manual', 'device', 'doctor'],
+      enum: ['manual', 'device', 'doctor', 'patient'],
       default: 'manual',
     },
   },

@@ -199,10 +199,42 @@ const clinicalScanSchema = new mongoose.Schema(
       default: false,
     },
 
-    // ── Uploaded By ──────────────────────────────────────────
+    // ── Uploaded By & Sharing ───────────────────────────────
     uploadedByDoctorId: {
       type: String,
       trim: true,
+    },
+
+    /**
+     * Set to true when doctor clicks "Send Report to Patient Portal".
+     * Only shared reports are visible to the patient in their portal.
+     */
+    isSharedWithPatient: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    sharedAt: {
+      type: Date,
+      default: null,
+    },
+
+    doctorNotesToPatient: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    doctorSigned: {
+      type: Boolean,
+      default: false,
+    },
+
+    doctorSignatureName: {
+      type: String,
+      trim: true,
+      default: '',
     },
   },
   {

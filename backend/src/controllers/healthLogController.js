@@ -2,14 +2,19 @@
  * controllers/healthLogController.js
  *
  * Daily health log biometric tracking controller.
+ * Multi-tenancy protected:
+ *  - Doctors can only view logs of their allotted patients.
+ *  - Patients can log their own glucose/BP telemetry and view their history.
  */
 
 const DailyHealthLog = require('../models/DailyHealthLog');
+const Patient = require('../models/Patient');
 const asyncHandler = require('../middleware/errorHandler');
 
 /**
  * @desc    Submit daily health log
  * @route   POST /api/health-logs
+ * @access  Private (Patient or Doctor)
  */
 exports.createHealthLog = asyncHandler(async (req, res) => {
   const {
@@ -33,6 +38,24 @@ exports.createHealthLog = asyncHandler(async (req, res) => {
     });
   }
 
+  // Multi-tenancy check
+  if (patientId.match(/^[0-9a-fA-F]{24}$/)) {
+    const patient = await Patient.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient profile not found.' });
+    }
+
+    if (req.user && req.user.role === 'patient') {
+      const allowedProfileId = String(req.user.patientProfileId || req.user._id);
+      if (allowedProfileId !== String(patientId) && String(req.user._id) !== String(patientId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only record health telemetry for your own profile.',
+        });
+      }
+    }
+  }
+
   // Normalize date to midnight UTC to prevent same-day duplicate entries
   const parsedDate = logDate ? new Date(logDate) : new Date();
   parsedDate.setUTCHours(0, 0, 0, 0);
@@ -48,7 +71,7 @@ exports.createHealthLog = asyncHandler(async (req, res) => {
     weightKg,
     heartRateBpm,
     notes,
-    entrySource: entrySource || 'manual',
+    entrySource: entrySource || (req.user && req.user.role === 'patient' ? 'patient' : 'manual'),
   });
 
   res.status(201).json({
@@ -61,10 +84,27 @@ exports.createHealthLog = asyncHandler(async (req, res) => {
 /**
  * @desc    Get health logs for a patient
  * @route   GET /api/health-logs/:patientId
+ * @access  Private (Doctor or Patient)
  */
 exports.getHealthLogsByPatient = asyncHandler(async (req, res) => {
   const { patientId } = req.params;
   const { limit = 30, startDate, endDate } = req.query;
+
+  // Multi-tenancy check
+  if (patientId.match(/^[0-9a-fA-F]{24}$/)) {
+    const patient = await Patient.findById(patientId);
+    if (patient) {
+      if (req.user && req.user.role === 'doctor') {
+        const isOwner = String(patient.assignedDoctorId) === String(req.user._id);
+        if (!isOwner) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access forbidden: You cannot view health logs of another doctor\'s patient.',
+          });
+        }
+      }
+    }
+  }
 
   const query = { patientId };
 
@@ -88,6 +128,7 @@ exports.getHealthLogsByPatient = asyncHandler(async (req, res) => {
 /**
  * @desc    Update a specific health log entry
  * @route   PUT /api/health-logs/:id
+ * @access  Private
  */
 exports.updateHealthLog = asyncHandler(async (req, res) => {
   const log = await DailyHealthLog.findByIdAndUpdate(req.params.id, req.body, {
@@ -98,12 +139,13 @@ exports.updateHealthLog = asyncHandler(async (req, res) => {
   if (!log) {
     return res.status(404).json({
       success: false,
-      message: `Health log entry not found with ID ${req.params.id}`,
+      message: `Health log entry with ID ${req.params.id} not found.`,
     });
   }
 
   res.status(200).json({
     success: true,
+    message: 'Health log entry updated.',
     log,
   });
 });
@@ -111,6 +153,7 @@ exports.updateHealthLog = asyncHandler(async (req, res) => {
 /**
  * @desc    Delete a health log entry
  * @route   DELETE /api/health-logs/:id
+ * @access  Private
  */
 exports.deleteHealthLog = asyncHandler(async (req, res) => {
   const log = await DailyHealthLog.findByIdAndDelete(req.params.id);
@@ -118,12 +161,12 @@ exports.deleteHealthLog = asyncHandler(async (req, res) => {
   if (!log) {
     return res.status(404).json({
       success: false,
-      message: `Health log entry not found with ID ${req.params.id}`,
+      message: `Health log entry with ID ${req.params.id} not found.`,
     });
   }
 
   res.status(200).json({
     success: true,
-    message: 'Health log entry removed.',
+    message: 'Health log entry deleted.',
   });
 });

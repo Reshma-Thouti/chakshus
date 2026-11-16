@@ -1,20 +1,28 @@
 /**
  * components/common/Navbar.jsx
  *
- * Remidio-inspired Clinical Header & Navigation Bar.
+ * Remidio-inspired Clinical Header & Navigation Bar with Auth Integration.
  * Features:
  *  - Diagnostic system telemetry top-bar (AI engine status, camera calibration)
- *  - High-precision medical branding with butterfly/retina metamorphosis emblem
- *  - Clinical role routing
+ *  - High-precision medical branding
+ *  - Strict role-based navigation: Doctor vs Patient
+ *  - Current authenticated identity pill with Logout action
  */
 
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function Navbar() {
   const { selectedPatient, notification } = useAppContext();
-  const location = useLocation();
+  const { user, isAuthenticated, isDoctor, isPatient, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header style={{ position: 'sticky', top: 0, zIndex: 100 }}>
@@ -86,26 +94,7 @@ export default function Navbar() {
         </NavLink>
 
         {/* Navigation Items */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {selectedPatient && (
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              fontSize: '12px',
-              color: '#FFFFFF',
-              marginRight: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}>
-              <span style={{ color: 'var(--remidio-cyan)' }}>●</span>
-              <span>Patient: <strong>{selectedPatient.fullName}</strong></span>
-              <span style={{ opacity: 0.6, fontSize: '11px' }}>({selectedPatient.diabetesType})</span>
-            </div>
-          )}
-
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <NavLink
             to="/"
             end
@@ -113,7 +102,7 @@ export default function Navbar() {
               color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.75)',
               background: isActive ? 'rgba(0, 194, 203, 0.18)' : 'transparent',
               border: isActive ? '1px solid rgba(0, 194, 203, 0.35)' : '1px solid transparent',
-              padding: '7px 14px',
+              padding: '6px 12px',
               borderRadius: '6px',
               fontSize: '13px',
               fontWeight: 600,
@@ -124,31 +113,15 @@ export default function Navbar() {
             Overview
           </NavLink>
 
-          <NavLink
-            to="/doctor"
-            style={({ isActive }) => ({
-              color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.75)',
-              background: isActive ? 'rgba(0, 194, 203, 0.18)' : 'transparent',
-              border: isActive ? '1px solid rgba(0, 194, 203, 0.35)' : '1px solid transparent',
-              padding: '7px 14px',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 600,
-              textDecoration: 'none',
-              transition: 'all 0.15s ease',
-            })}
-          >
-            🩺 Clinical Workstation
-          </NavLink>
-
-          {selectedPatient && (
+          {/* Doctor Portal Link */}
+          {(!isAuthenticated || isDoctor) && (
             <NavLink
-              to={`/patient/${selectedPatient._id}`}
+              to="/doctor"
               style={({ isActive }) => ({
                 color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.75)',
                 background: isActive ? 'rgba(0, 194, 203, 0.18)' : 'transparent',
                 border: isActive ? '1px solid rgba(0, 194, 203, 0.35)' : '1px solid transparent',
-                padding: '7px 14px',
+                padding: '6px 12px',
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 600,
@@ -156,8 +129,99 @@ export default function Navbar() {
                 transition: 'all 0.15s ease',
               })}
             >
-              📋 Patient Portal
+              🩺 Doctor Workstation
             </NavLink>
+          )}
+
+          {/* Patient Portal Link */}
+          {isAuthenticated && isPatient && (
+            <NavLink
+              to={`/patient/${user?.patientProfileId || user?.id}`}
+              style={({ isActive }) => ({
+                color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.75)',
+                background: isActive ? 'rgba(0, 194, 203, 0.18)' : 'transparent',
+                border: isActive ? '1px solid rgba(0, 194, 203, 0.35)' : '1px solid transparent',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 600,
+                textDecoration: 'none',
+                transition: 'all 0.15s ease',
+              })}
+            >
+              📋 My Vision Health Portal
+            </NavLink>
+          )}
+
+          {/* User Status / Auth Button */}
+          {isAuthenticated && user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '8px' }}>
+              <div style={{
+                background: isDoctor ? 'rgba(0, 194, 203, 0.15)' : 'rgba(255, 255, 255, 0.1)',
+                border: `1px solid ${isDoctor ? 'rgba(0, 194, 203, 0.4)' : 'rgba(255, 255, 255, 0.2)'}`,
+                padding: '5px 12px',
+                borderRadius: '999px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <span style={{ fontSize: '13px' }}>{isDoctor ? '🩺' : '👤'}</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>
+                  {user.name}
+                </span>
+                <span style={{
+                  background: isDoctor ? 'var(--remidio-cyan)' : '#E2E8F0',
+                  color: isDoctor ? '#0B192C' : '#1E293B',
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  textTransform: 'uppercase',
+                }}>
+                  {user.role}
+                </span>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="btn btn-outline btn-sm"
+                style={{
+                  fontSize: '12px',
+                  color: '#FFFFFF',
+                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                  padding: '5px 10px',
+                }}
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
+              <NavLink
+                to="/login?portal=doctor"
+                className="btn btn-outline btn-sm"
+                style={{
+                  fontSize: '12px',
+                  color: '#FFFFFF',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  padding: '5px 12px',
+                  textDecoration: 'none',
+                }}
+              >
+                Doctor Sign In
+              </NavLink>
+              <NavLink
+                to="/login?portal=patient"
+                className="btn btn-cyan btn-sm"
+                style={{
+                  fontSize: '12px',
+                  padding: '5px 12px',
+                  textDecoration: 'none',
+                }}
+              >
+                Patient Sign In
+              </NavLink>
+            </div>
           )}
         </div>
       </nav>

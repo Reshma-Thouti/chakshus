@@ -10,9 +10,12 @@
  *  - Multi-spectral Retinal Viewer (True-color / AI Heatmap CAM / Red-Free Green Channel)
  *  - Lesion quantification counters (Microaneurysms, Hard Exudates, Hemorrhages)
  *  - Tele-ophthalmology verification signature & PDF export
+ *  - DIRECT REPORT TRANSMISSION TO PATIENT PORTAL (Requirement 6)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { shareScanWithPatient } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const GRADE_META = {
   0: {
@@ -62,10 +65,33 @@ const GRADE_META = {
   },
 };
 
-export default function RiskScoreCard({ scan, imageUrl }) {
+export default function RiskScoreCard({ scan, imageUrl, patientName, onScanUpdated }) {
+  const { user } = useAuth();
   const [viewerMode, setViewerMode] = useState('standard'); // 'standard' | 'heatmap' | 'green-channel'
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isVerified, setIsVerified] = useState(false);
+
+  // Report sharing states (Requirement 6)
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [doctorNote, setDoctorNote] = useState('');
+  const [signatureName, setSignatureName] = useState(user?.name || 'Attending Ophthalmologist');
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+
+  useEffect(() => {
+    if (scan) {
+      setShareSuccess(Boolean(scan.isSharedWithPatient));
+      if (scan.doctorNotesToPatient) {
+        setDoctorNote(scan.doctorNotesToPatient);
+      } else {
+        const meta = GRADE_META[scan.drGrade] || GRADE_META[0];
+        setDoctorNote(meta.recommendation);
+      }
+      if (scan.doctorSignatureName) {
+        setSignatureName(scan.doctorSignatureName);
+      }
+    }
+  }, [scan]);
 
   if (!scan) {
     return (
@@ -92,14 +118,34 @@ export default function RiskScoreCard({ scan, imageUrl }) {
   const confPct = scan.confidenceScore ? Math.round(scan.confidenceScore * 100) : 92;
   const isReferable = meta.referable;
   const isSTDR = meta.stdr;
+  const isShared = shareSuccess || Boolean(scan.isSharedWithPatient);
 
   // Filter styles for Remidio AI Lens modes
   const getImageFilter = () => {
     if (viewerMode === 'green-channel') {
-      // Red-free mode: suppresses red channel to highlight microaneurysms & hemorrhages in black
       return 'grayscale(100%) contrast(160%) brightness(90%) hue-rotate(90deg)';
     }
     return 'none';
+  };
+
+  const handleSendToPatient = async () => {
+    setIsSharing(true);
+    try {
+      const scanId = scan._id || scan.id;
+      const res = await shareScanWithPatient(scanId, {
+        notes: doctorNote,
+        doctorSignatureName: signatureName,
+      });
+      setShareSuccess(true);
+      setShowShareModal(false);
+      if (onScanUpdated && res?.scan) {
+        onScanUpdated(res.scan);
+      }
+    } catch (err) {
+      alert(`Could not send report: ${err.message}`);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   return (
@@ -115,7 +161,12 @@ export default function RiskScoreCard({ scan, imageUrl }) {
             Protocol: ICDR 5-Scale &bull; Model: ResNet-18 DR v1.0
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div style={{ textAlign: 'right', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {isShared && (
+            <span className="badge" style={{ background: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
+              ✓ SHARED WITH PATIENT
+            </span>
+          )}
           <span className="badge" style={{ background: '#E0F2FE', color: '#0369A1' }}>
             ✓ IQC PASS (98.6% GRADABLE)
           </span>
@@ -160,7 +211,6 @@ export default function RiskScoreCard({ scan, imageUrl }) {
         </div>
 
         <div className="retinal-viewer-container" style={{ position: 'relative' }}>
-          {/* Simulated or Real Fundus Image */}
           <div
             style={{
               width: '100%',
@@ -188,7 +238,6 @@ export default function RiskScoreCard({ scan, imageUrl }) {
                 }}
               />
             ) : (
-              /* Simulated High-Res Fundus Disc */
               <div
                 style={{
                   width: '240px',
@@ -202,7 +251,6 @@ export default function RiskScoreCard({ scan, imageUrl }) {
                   filter: getImageFilter(),
                 }}
               >
-                {/* Optic Disc */}
                 <div style={{
                   position: 'absolute',
                   top: '40%',
@@ -213,7 +261,6 @@ export default function RiskScoreCard({ scan, imageUrl }) {
                   background: 'radial-gradient(circle, #FFF0B3 0%, #E6C265 80%)',
                   boxShadow: '0 0 10px rgba(255, 240, 179, 0.5)',
                 }} />
-                {/* Macula */}
                 <div style={{
                   position: 'absolute',
                   top: '45%',
@@ -226,7 +273,6 @@ export default function RiskScoreCard({ scan, imageUrl }) {
               </div>
             )}
 
-            {/* AI Heatmap (CAM) Overlay simulation */}
             {viewerMode === 'heatmap' && (
               <div style={{
                 position: 'absolute',
@@ -238,7 +284,6 @@ export default function RiskScoreCard({ scan, imageUrl }) {
             )}
           </div>
 
-          {/* Mode Switcher Buttons */}
           <div className="retinal-viewer-controls">
             <button
               className={`viewer-mode-btn ${viewerMode === 'standard' ? 'active' : ''}`}
@@ -340,7 +385,7 @@ export default function RiskScoreCard({ scan, imageUrl }) {
         </div>
       )}
 
-      {/* ── DOCTOR VERIFICATION & EXPORT BAR ──────────── */}
+      {/* ── DOCTOR VERIFICATION & EXPORT BAR (With Direct Send to Patient Portal) ── */}
       <div style={{
         background: 'var(--color-surface-subtle)',
         border: '1px solid var(--color-border)',
@@ -355,21 +400,137 @@ export default function RiskScoreCard({ scan, imageUrl }) {
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
           <input
             type="checkbox"
-            checked={isVerified}
+            checked={isVerified || isShared}
             onChange={(e) => setIsVerified(e.target.checked)}
             style={{ width: '16px', height: '16px', accentColor: 'var(--remidio-cyan)' }}
           />
           <span>Ophthalmologist Verified & Signed</span>
         </label>
 
-        <button
-          className="btn btn-outline btn-sm"
-          onClick={() => window.print()}
-          style={{ background: '#FFFFFF' }}
-        >
-          📄 Export Screening PDF
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => window.print()}
+            style={{ background: '#FFFFFF' }}
+          >
+            📄 Export Screening PDF
+          </button>
+
+          {/* REQUIREMENT 6: DIRECT SEND TO PATIENT PORTAL */}
+          <button
+            className={`btn ${isShared ? 'btn-outline' : 'btn-cyan'} btn-sm`}
+            onClick={() => setShowShareModal(true)}
+            style={{
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: isShared ? '#ECFDF5' : undefined,
+              borderColor: isShared ? '#10B981' : undefined,
+              color: isShared ? '#065F46' : undefined,
+            }}
+          >
+            <span>{isShared ? '✓ Report Sent to Patient' : '📤 Send Report to Patient Portal'}</span>
+          </button>
+        </div>
       </div>
+
+      {/* ── MODAL: CONFIRM REPORT TRANSMISSION TO PATIENT ──────── */}
+      {showShareModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(11, 25, 44, 0.65)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: 'var(--radius-lg)',
+            maxWidth: '540px',
+            width: '100%',
+            padding: 'var(--space-xl)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-md)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📤</span>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--remidio-navy)' }}>
+                  Send Report to Patient Portal
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#94A3B8' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-md)' }}>
+              This will immediately publish the AI screening findings and your clinical instructions directly to <strong>{patientName || 'the patient'}</strong>'s personal portal.
+            </p>
+
+            <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', marginBottom: 'var(--space-md)', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                Diagnostic Findings:
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: meta.badgeText }}>
+                {meta.label} ({confPct}% AI confidence)
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748B' }}>
+                Eye: {scan.eye || 'Right Eye'} &bull; Scan Date: {new Date(scan.scanDate).toLocaleDateString()}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 'var(--space-md)' }}>
+              <label className="label">Clinician's Personalized Notes &amp; Recommendations</label>
+              <textarea
+                className="input"
+                rows={3}
+                value={doctorNote}
+                onChange={(e) => setDoctorNote(e.target.value)}
+                placeholder="Enter clinical advice for the patient..."
+                style={{ resize: 'vertical' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
+              <label className="label">Attending Clinician Signature Name</label>
+              <input
+                type="text"
+                className="input"
+                value={signatureName}
+                onChange={(e) => setSignatureName(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setShowShareModal(false)}
+                disabled={isSharing}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-cyan btn-sm"
+                onClick={handleSendToPatient}
+                disabled={isSharing}
+                style={{ fontWeight: 700 }}
+              >
+                {isSharing ? 'Transmitting...' : '✓ Confirm & Send to Patient Portal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -2,8 +2,13 @@
  * controllers/scanController.js
  *
  * Handles fundus photograph uploads, invokes the Python ML microservice
- * to predict Diabetic Retinopathy severity (0-4), and persists the
- * clinical scan diagnosis to MongoDB.
+ * to predict Diabetic Retinopathy severity (0-4), persists the
+ * clinical scan diagnosis to MongoDB, and manages secure doctor-to-patient report sharing.
+ *
+ * Security & Multi-Tenancy:
+ *  - Doctors can only upload scans and view scans for their allotted patients.
+ *  - Doctor B is strictly blocked (403) from accessing Doctor A's patient scans.
+ *  - Patients can only view scans that have been reviewed and shared by their doctor (isSharedWithPatient: true).
  */
 
 const fs = require('fs');
@@ -16,7 +21,7 @@ const asyncHandler = require('../middleware/errorHandler');
 /**
  * @desc    Upload retinal scan & get AI prediction
  * @route   POST /api/scans
- * @access  Clinician
+ * @access  Private (Doctor)
  */
 exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
   // 1. Validate file existence
@@ -27,11 +32,10 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
     });
   }
 
-  const { patientId, scanDate, eye, uploadedByDoctorId } = req.body;
+  const { patientId, scanDate, eye } = req.body;
 
   // 2. Validate patient reference
   if (!patientId) {
-    // Clean up uploaded file if validation fails
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     return res.status(400).json({
       success: false,
@@ -39,7 +43,7 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
     });
   }
 
-  // Verify patient exists in DB (if patientId is valid ObjectId)
+  // Multi-Tenancy Check: Verify patient exists and is allotted to the requesting doctor
   if (patientId.match(/^[0-9a-fA-F]{24}$/)) {
     const patientExists = await Patient.findById(patientId);
     if (!patientExists) {
@@ -48,6 +52,17 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
         success: false,
         message: `Patient with ID ${patientId} not found.`,
       });
+    }
+
+    if (req.user && req.user.role === 'doctor') {
+      const isOwner = String(patientExists.assignedDoctorId) === String(req.user._id);
+      if (!isOwner) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You are not authorized to upload scans for another doctor\'s patient.',
+        });
+      }
     }
   }
 
@@ -60,6 +75,8 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
   const fileBlob = new Blob([fileBuffer], { type: req.file.mimetype });
   formData.append('file', fileBlob, req.file.originalname);
 
+  const doctorIdentifier = req.user ? String(req.user._id) : (req.body.uploadedByDoctorId || 'Doctor');
+
   let mlResponse;
   try {
     // 4. Send image to Python ML microservice (POST /predict)
@@ -67,7 +84,7 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 30000, // 30 second timeout for model inference
+      timeout: 30000,
     });
     mlResponse = response.data;
   } catch (mlError) {
@@ -91,7 +108,7 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
       confidenceScore: null,
       gradeProbabilities: [],
       gradingSource: 'pending',
-      uploadedByDoctorId: uploadedByDoctorId || 'Doctor',
+      uploadedByDoctorId: doctorIdentifier,
     });
 
     await pendingScan.save();
@@ -125,7 +142,7 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
     gradedAt: new Date(),
     requiresUrgentReview: mlResponse.requires_urgent_review,
     clinicianNotes: mlResponse.clinical_recommendation,
-    uploadedByDoctorId: uploadedByDoctorId || 'Doctor',
+    uploadedByDoctorId: doctorIdentifier,
   });
 
   let savedScan;
@@ -144,14 +161,40 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Get all scans for a specific patient
+ * @desc    Get all scans for a specific patient (Role-Filtered)
  * @route   GET /api/scans/:patientId
- * @access  Clinician
+ * @access  Private
  */
 exports.getScansByPatient = asyncHandler(async (req, res) => {
   const { patientId } = req.params;
 
-  const scans = await ClinicalScan.find({ patientId }).sort({ scanDate: -1 });
+  // Verify patient existence and multi-tenancy bounds
+  if (patientId.match(/^[0-9a-fA-F]{24}$/)) {
+    const patient = await Patient.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    // If requested by doctor, ensure allotment
+    if (req.user && req.user.role === 'doctor') {
+      const isOwner = String(patient.assignedDoctorId) === String(req.user._id);
+      if (!isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access forbidden: You cannot access scans belonging to another doctor\'s patient.',
+        });
+      }
+    }
+  }
+
+  const query = { patientId };
+
+  // If requested by a patient, ONLY return scans shared by the doctor
+  if (req.user && req.user.role === 'patient') {
+    query.isSharedWithPatient = true;
+  }
+
+  const scans = await ClinicalScan.find(query).sort({ scanDate: -1 });
 
   res.status(200).json({
     success: true,
@@ -161,14 +204,66 @@ exports.getScansByPatient = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Get scans flagged for urgent clinical review (Grade >= 3 or low confidence)
+ * @desc    Transmit scan report to the Patient's Portal
+ * @route   PUT /api/scans/:id/share
+ * @access  Private (Doctor)
+ */
+exports.shareScanWithPatient = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { notes, doctorSignatureName } = req.body;
+
+  const scan = await ClinicalScan.findById(id);
+  if (!scan) {
+    return res.status(404).json({
+      success: false,
+      message: `Clinical scan with ID ${id} not found.`,
+    });
+  }
+
+  // Verify doctor ownership of this patient
+  const patient = await Patient.findById(scan.patientId);
+  if (patient && req.user && req.user.role === 'doctor') {
+    const isOwner = String(patient.assignedDoctorId) === String(req.user._id);
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access forbidden: You can only share reports for your own allotted patients.',
+      });
+    }
+  }
+
+  scan.isSharedWithPatient = true;
+  scan.sharedAt = new Date();
+  if (notes) scan.doctorNotesToPatient = notes;
+  scan.doctorSigned = true;
+  scan.doctorSignatureName =
+    doctorSignatureName || (req.user ? req.user.name : 'Attending Ophthalmologist');
+
+  const updatedScan = await scan.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Diagnostic report successfully transmitted to the patient portal.',
+    scan: updatedScan,
+  });
+});
+
+/**
+ * @desc    Get scans flagged for urgent clinical review (Filtered to requesting doctor's patients)
  * @route   GET /api/scans/urgent
- * @access  Clinician
+ * @access  Private (Doctor)
  */
 exports.getUrgentScans = asyncHandler(async (req, res) => {
-  const urgentScans = await ClinicalScan.find({ requiresUrgentReview: true })
-    .populate('patientId', 'fullName diabetesType diabetesDurationYears')
+  let urgentScans = await ClinicalScan.find({ requiresUrgentReview: true })
+    .populate('patientId', 'fullName diabetesType diabetesDurationYears assignedDoctorId')
     .sort({ scanDate: -1 });
+
+  // If requesting doctor, filter only their own patients
+  if (req.user && req.user.role === 'doctor') {
+    urgentScans = urgentScans.filter(
+      (scan) => scan.patientId && String(scan.patientId.assignedDoctorId) === String(req.user._id)
+    );
+  }
 
   res.status(200).json({
     success: true,
@@ -180,7 +275,7 @@ exports.getUrgentScans = asyncHandler(async (req, res) => {
 /**
  * @desc    Clinician manually overrides AI predicted grade
  * @route   PUT /api/scans/:id/grade
- * @access  Clinician
+ * @access  Private (Doctor)
  */
 exports.overrideScanGrade = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -199,6 +294,18 @@ exports.overrideScanGrade = asyncHandler(async (req, res) => {
       success: false,
       message: `Scan with ID ${id} not found.`,
     });
+  }
+
+  // Multi-tenancy check
+  const patient = await Patient.findById(scan.patientId);
+  if (patient && req.user && req.user.role === 'doctor') {
+    const isOwner = String(patient.assignedDoctorId) === String(req.user._id);
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access forbidden: You cannot modify scans of another doctor\'s patient.',
+      });
+    }
   }
 
   scan.drGrade = drGrade;

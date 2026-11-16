@@ -16,6 +16,7 @@ const path = require('path');
 require('dotenv').config();
 
 const connectDB = require('./src/config/db');
+const authRoutes = require('./src/routes/authRoutes');
 const patientRoutes = require('./src/routes/patientRoutes');
 const healthLogRoutes = require('./src/routes/healthLogRoutes');
 const scanRoutes = require('./src/routes/scanRoutes');
@@ -59,6 +60,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Mount Application Routes ─────────────────────────────────
+app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/health-logs', healthLogRoutes);
 app.use('/api/scans', scanRoutes);
@@ -80,6 +82,7 @@ app.get('/api', (req, res) => {
     message: '🩺 Diabetic Vision Health Management System API',
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
       patients: '/api/patients',
       healthLogs: '/api/health-logs',
       scans: '/api/scans',

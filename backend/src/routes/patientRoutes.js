@@ -1,7 +1,7 @@
 /**
  * routes/patientRoutes.js
  *
- * Patient management API routes.
+ * Patient management API routes with strict auth protection.
  */
 
 const express = require('express');
@@ -12,13 +12,16 @@ const {
   getPatientById,
   updatePatient,
 } = require('../controllers/patientController');
+const { protect, authorize } = require('../middleware/authMiddleware');
+
+router.use(protect);
 
 router.route('/')
-  .get(getPatients)
-  .post(createPatient);
+  .get(authorize('doctor'), getPatients)
+  .post(authorize('doctor'), createPatient);
 
 router.route('/:id')
   .get(getPatientById)
-  .put(updatePatient);
+  .put(authorize('doctor'), updatePatient);
 
 module.exports = router;

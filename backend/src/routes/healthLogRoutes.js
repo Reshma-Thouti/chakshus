@@ -12,6 +12,9 @@ const {
   updateHealthLog,
   deleteHealthLog,
 } = require('../controllers/healthLogController');
+const { protect } = require('../middleware/authMiddleware');
+
+router.use(protect);
 
 router.post('/', createHealthLog);
 router.get('/:patientId', getHealthLogsByPatient);
