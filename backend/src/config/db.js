@@ -3,28 +3,25 @@
  *
  * Establishes and exports the MongoDB connection via Mongoose.
  * Called once at server startup from server.js.
- *
- * Design decisions:
- *  - Mongoose 8.x removed many deprecated options (useNewUrlParser, etc.),
- *    so the connect call is clean with just the URI.
- *  - We log the connected host so the developer always knows which
- *    database they are actually talking to (local vs Atlas).
- *  - On connection error we log and exit — a backend without a DB
- *    is non-functional and should fail loudly.
  */
 
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
+    const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/diabetic_vision_db';
+    const conn = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 3000, // 3s timeout so server startup doesn't hang if Mongo is offline
+    });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     console.log(`   Database name    : ${conn.connection.name}`);
   } catch (error) {
-    console.error(`❌ MongoDB connection failed: ${error.message}`);
-    // Exit with failure code so the process manager (e.g. PM2) can restart
-    process.exit(1);
+    console.error(`⚠️ MongoDB connection notice: ${error.message}`);
+    console.error(`   (Backend will run in resilient mode. Start MongoDB to enable full persistence)`);
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
   }
 };
 

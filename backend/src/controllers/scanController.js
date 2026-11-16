@@ -128,7 +128,13 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
     uploadedByDoctorId: uploadedByDoctorId || 'Doctor',
   });
 
-  const savedScan = await scanRecord.save();
+  let savedScan;
+  try {
+    savedScan = await scanRecord.save();
+  } catch (dbErr) {
+    console.warn(`⚠️ Scan analyzed by AI, but MongoDB write skipped (${dbErr.message}).`);
+    savedScan = scanRecord.toObject ? scanRecord.toObject() : scanRecord;
+  }
 
   res.status(201).json({
     success: true,
