@@ -296,7 +296,7 @@ export default function PatientDashboard() {
         <div className="stat-card" style={{ borderLeft: '3px solid #10B981' }}>
           <span className="stat-label">Blood Pressure</span>
           <div className="stat-value">
-            {latestLog.bloodPressureSystolic ? `${latestLog.bloodPressureSystolic}/${latestLog.bloodPressureDiastolic}` : '128/82'}
+            {latestLog.bloodPressureSystolic && latestLog.bloodPressureDiastolic ? `${latestLog.bloodPressureSystolic}/${latestLog.bloodPressureDiastolic}` : '—'}
             <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}> mmHg</span>
           </div>
           <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>

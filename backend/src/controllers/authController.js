@@ -151,7 +151,7 @@ exports.login = asyncHandler(async (req, res) => {
   if (!user) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid email or password.',
+      message: 'Account not found. Registration must be completed before logging in.',
     });
   }
 
@@ -168,7 +168,7 @@ exports.login = asyncHandler(async (req, res) => {
   if (!isMatch) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid email or password.',
+      message: 'Incorrect password. Please verify your credentials and try again.',
     });
   }
 

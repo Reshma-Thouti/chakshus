@@ -194,7 +194,7 @@ export default function DoctorDashboard() {
     const latest = logs[0] || {};
     const latestBP = latest.bloodPressureSystolic && latest.bloodPressureDiastolic
       ? `${latest.bloodPressureSystolic}/${latest.bloodPressureDiastolic}`
-      : '130/84';
+      : '—';
 
     return { avgFasting, avgPostMeal, latestBP };
   }, [logs]);
@@ -206,7 +206,7 @@ export default function DoctorDashboard() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--remidio-navy)' }}>
-              🩺 {user?.name || 'Clinician'}'s Diagnostic Workstation
+              {user?.name || 'Clinician'}'s Diagnostic Workstation
             </h1>
             <span className="badge" style={{ background: 'rgba(0, 194, 203, 0.15)', color: 'var(--remidio-cyan-hover)', border: '1px solid var(--remidio-cyan)' }}>
               {user?.specialization || 'Ophthalmologist'}

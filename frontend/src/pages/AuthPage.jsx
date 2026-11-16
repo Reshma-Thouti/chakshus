@@ -5,6 +5,8 @@
  * Strictly separates:
  *  1. Doctor Portal (Clinical Diagnostic Workstation Access)
  *  2. Patient Portal (Personal Glycemic & Retinal Health Reports)
+ *
+ * Registration is required before login will succeed.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -23,7 +25,8 @@ export default function AuthPage() {
   const [portal, setPortal] = useState(initialPortal);
 
   // Form mode: 'login' | 'register'
-  const [mode, setMode] = useState('login');
+  const initialMode = searchParams.get('mode') === 'register' ? 'register' : 'login';
+  const [mode, setMode] = useState(initialMode);
 
   // Form states
   const [email, setEmail] = useState('');
@@ -51,7 +54,7 @@ export default function AuthPage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   // Fetch doctors list for patient allotment dropdown
-  useEffect(() => {
+  const loadDoctors = () => {
     getDoctorsList()
       .then((res) => {
         const list = res?.doctors || [];
@@ -59,6 +62,10 @@ export default function AuthPage() {
         if (list.length > 0) setSelectedDoctorId(list[0]._id);
       })
       .catch((err) => console.warn('Could not load doctors list:', err.message));
+  };
+
+  useEffect(() => {
+    loadDoctors();
   }, []);
 
   // Redirect if already authenticated
@@ -90,7 +97,7 @@ export default function AuthPage() {
       } else {
         // Register
         if (portal === 'doctor') {
-          const res = await register({
+          await register({
             name,
             email,
             password,
@@ -103,7 +110,7 @@ export default function AuthPage() {
         } else {
           // Patient registration requires doctor allotment
           if (!selectedDoctorId) {
-            setErrorMsg('Please select your attending ophthalmologist.');
+            setErrorMsg('No attending ophthalmologist selected. An attending doctor must register first.');
             setLoading(false);
             return;
           }
@@ -131,6 +138,8 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  const isPatientRegisterBlocked = portal === 'patient' && mode === 'register' && doctors.length === 0;
 
   return (
     <div style={{ maxWidth: '600px', margin: 'var(--space-xl) auto', padding: '0 var(--space-md)' }}>
@@ -193,7 +202,7 @@ export default function AuthPage() {
 
         <button
           type="button"
-          onClick={() => { setPortal('patient'); setErrorMsg(''); }}
+          onClick={() => { setPortal('patient'); setErrorMsg(''); loadDoctors(); }}
           style={{
             padding: '12px 16px',
             borderRadius: 'var(--radius-sm)',
@@ -237,7 +246,7 @@ export default function AuthPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setMode('register'); setErrorMsg(''); }}
+            onClick={() => { setMode('register'); setErrorMsg(''); loadDoctors(); }}
             style={{
               padding: '10px 20px',
               border: 'none',
@@ -259,15 +268,36 @@ export default function AuthPage() {
             background: '#FEF2F2',
             border: '1px solid #FECACA',
             color: '#991B1B',
-            padding: '10px 14px',
+            padding: '12px 14px',
             borderRadius: 'var(--radius-sm)',
             fontSize: '13px',
             marginBottom: 'var(--space-md)',
             display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
+            flexDirection: 'column',
+            gap: '6px',
           }}>
-            <span>⚠️</span> {errorMsg}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚠️</span>
+              <span>{errorMsg}</span>
+            </div>
+            {mode === 'login' && errorMsg.includes('Registration must be completed') && (
+              <button
+                type="button"
+                onClick={() => { setMode('register'); setErrorMsg(''); loadDoctors(); }}
+                className="btn btn-sm"
+                style={{
+                  alignSelf: 'flex-start',
+                  background: '#991B1B',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  marginTop: '4px',
+                }}
+              >
+                Register New {portal === 'doctor' ? 'Doctor' : 'Patient'} Account &rarr;
+              </button>
+            )}
           </div>
         )}
 
@@ -288,6 +318,32 @@ export default function AuthPage() {
           </div>
         )}
 
+        {/* ── Notice when Patient attempts to register with 0 doctors in system ── */}
+        {isPatientRegisterBlocked && (
+          <div style={{
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            color: '#92400E',
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '13px',
+            marginBottom: 'var(--space-md)',
+            lineHeight: 1.5,
+          }}>
+            ⚠️ <strong>No Attending Doctors Registered Yet:</strong> An attending ophthalmologist must register their account first before patients can be allotted and registered.
+            <div style={{ marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={() => { setPortal('doctor'); setMode('register'); setErrorMsg(''); }}
+                className="btn btn-outline btn-sm"
+                style={{ background: '#FFFFFF', fontSize: '11px', fontWeight: 700 }}
+              >
+                Switch to Doctor Portal to Register Clinician &rarr;
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Auth Form ────────────────────────────────── */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           {mode === 'register' && (
@@ -297,7 +353,7 @@ export default function AuthPage() {
                 type="text"
                 className="input"
                 required
-                placeholder={portal === 'doctor' ? 'Dr. Name' : 'Patient Name'}
+                placeholder={portal === 'doctor' ? 'Dr. Full Name' : 'Patient Full Name'}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -364,10 +420,11 @@ export default function AuthPage() {
                   required
                   value={selectedDoctorId}
                   onChange={(e) => setSelectedDoctorId(e.target.value)}
+                  disabled={doctors.length === 0}
                   style={{ fontWeight: 600 }}
                 >
                   {doctors.length === 0 ? (
-                    <option value="">No registered doctors found</option>
+                    <option value="">No registered doctors found in the system</option>
                   ) : (
                     doctors.map((doc) => (
                       <option key={doc._id} value={doc._id}>
@@ -377,7 +434,7 @@ export default function AuthPage() {
                   )}
                 </select>
                 <span className="text-xs text-muted" style={{ display: 'block', marginTop: '4px' }}>
-                  🔒 Your retinal scans and telemetry are strictly accessible only to your assigned clinician.
+                  🔒 Your retinal scans and telemetry will strictly be allotted only to this attending clinician.
                 </span>
               </div>
 
@@ -469,12 +526,39 @@ export default function AuthPage() {
           <button
             type="submit"
             className={`btn ${portal === 'doctor' ? 'btn-primary' : 'btn-cyan'} btn-lg`}
-            disabled={loading}
+            disabled={loading || isPatientRegisterBlocked}
             style={{ marginTop: 'var(--space-sm)', width: '100%', justifyContent: 'center' }}
           >
             {loading ? 'Authenticating...' : mode === 'login' ? `Sign In to ${portal === 'doctor' ? 'Doctor Portal' : 'Patient Portal'}` : `Create ${portal === 'doctor' ? 'Doctor' : 'Patient'} Account`}
           </button>
         </form>
+
+        {/* ── Mode Switch Helper Link ──────────────────── */}
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-lg)', paddingTop: 'var(--space-md)', borderTop: '1px solid var(--color-border)', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+          {mode === 'login' ? (
+            <span>
+              Don't have an account yet?{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('register'); setErrorMsg(''); loadDoctors(); }}
+                style={{ background: 'none', border: 'none', color: 'var(--remidio-cyan-hover)', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+              >
+                Register your {portal === 'doctor' ? 'Doctor' : 'Patient'} account first &rarr;
+              </button>
+            </span>
+          ) : (
+            <span>
+              Already registered?{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setErrorMsg(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--remidio-cyan-hover)', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+              >
+                Sign In to your account &rarr;
+              </button>
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

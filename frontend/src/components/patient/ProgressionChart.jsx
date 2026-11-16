@@ -150,28 +150,32 @@ export default function ProgressionChart({ logs = [] }) {
     };
   }, [logs]);
 
-  // ── MOCK DATA — shown when no real logs exist yet ─────────
-  const haslogs = logs.length > 0;
+  // If no real logs exist, render clean empty state
+  if (!logs || logs.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-muted)' }}>
+        <div style={{ fontSize: '36px', marginBottom: '8px' }}>📈</div>
+        <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+          No Biometric Telemetry Recorded Yet
+        </p>
+        <p style={{ fontSize: '12px', marginTop: '4px', maxWidth: '360px', margin: '4px auto 0' }}>
+          Record your daily fasting and post-meal glucose readings to start tracking your longitudinal progression chart.
+        </p>
+      </div>
+    );
+  }
 
-  const mockLabels = ['Nov 1','Nov 2','Nov 3','Nov 4','Nov 5','Nov 6','Nov 7',
-                      'Nov 8','Nov 9','Nov 10','Nov 11','Nov 12','Nov 13','Nov 14'];
-
-  const displayLabels     = haslogs ? labels : mockLabels;
-  const mockFasting       = [128,132,118,145,138,122,130,125,115,142,136,120,128,131];
-  const mockPostMeal      = [185,195,172,210,205,180,190,185,165,215,200,175,195,188];
-  const mockSystolic      = [130,135,128,142,138,132,136,130,125,140,137,129,133,136];
-  const mockDiastolic     = [82,86,80,90,88,83,87,82,78,91,88,80,84,87];
-  const thresholdArr      = displayLabels.map(() => FASTING_DIABETIC_THRESHOLD);
-  const postThresholdArr  = displayLabels.map(() => POSTMEAL_DIABETIC_THRESHOLD);
-  const bpThresholdArr    = displayLabels.map(() => SYSTOLIC_HYPERTENSION_STAGE2);
+  const thresholdArr      = labels.map(() => FASTING_DIABETIC_THRESHOLD);
+  const postThresholdArr  = labels.map(() => POSTMEAL_DIABETIC_THRESHOLD);
+  const bpThresholdArr    = labels.map(() => SYSTOLIC_HYPERTENSION_STAGE2);
 
   // ── Chart Datasets ────────────────────────────────────────
   const glucoseChartData = {
-    labels: displayLabels,
+    labels,
     datasets: [
       {
         label: 'Fasting Glucose (mg/dL)',
-        data: haslogs ? glucoseData.fasting : mockFasting,
+        data: glucoseData.fasting,
         borderColor: '#3182CE',
         backgroundColor: 'rgba(49,130,206,0.08)',
         fill: true,
@@ -183,7 +187,7 @@ export default function ProgressionChart({ logs = [] }) {
       },
       {
         label: 'Post-Meal Glucose (mg/dL)',
-        data: haslogs ? glucoseData.postMeal : mockPostMeal,
+        data: glucoseData.postMeal,
         borderColor: '#E53E3E',
         backgroundColor: 'rgba(229,62,62,0.06)',
         fill: false,
@@ -195,7 +199,7 @@ export default function ProgressionChart({ logs = [] }) {
       },
       {
         label: `Fasting Threshold (${FASTING_DIABETIC_THRESHOLD})`,
-        data: haslogs ? glucoseData.fastingThreshold : thresholdArr,
+        data: glucoseData.fastingThreshold,
         borderColor: 'rgba(49,130,206,0.35)',
         borderDash: [6, 4],
         borderWidth: 1.5,
@@ -204,7 +208,7 @@ export default function ProgressionChart({ logs = [] }) {
       },
       {
         label: `Post-Meal Threshold (${POSTMEAL_DIABETIC_THRESHOLD})`,
-        data: haslogs ? glucoseData.postMealThreshold : postThresholdArr,
+        data: glucoseData.postMealThreshold,
         borderColor: 'rgba(229,62,62,0.35)',
         borderDash: [6, 4],
         borderWidth: 1.5,
@@ -215,11 +219,11 @@ export default function ProgressionChart({ logs = [] }) {
   };
 
   const bpChartData = {
-    labels: displayLabels,
+    labels,
     datasets: [
       {
         label: 'Systolic BP (mmHg)',
-        data: haslogs ? bpData.systolic : mockSystolic,
+        data: bpData.systolic,
         borderColor: '#805AD5',
         backgroundColor: 'rgba(128,90,213,0.07)',
         fill: true,
@@ -231,7 +235,7 @@ export default function ProgressionChart({ logs = [] }) {
       },
       {
         label: 'Diastolic BP (mmHg)',
-        data: haslogs ? bpData.diastolic : mockDiastolic,
+        data: bpData.diastolic,
         borderColor: '#00A878',
         fill: false,
         tension: 0.4,
@@ -242,7 +246,7 @@ export default function ProgressionChart({ logs = [] }) {
       },
       {
         label: `Hypertension Stage 2 (${SYSTOLIC_HYPERTENSION_STAGE2} mmHg)`,
-        data: haslogs ? bpData.bpThreshold : bpThresholdArr,
+        data: bpData.bpThreshold,
         borderColor: 'rgba(128,90,213,0.35)',
         borderDash: [6, 4],
         borderWidth: 1.5,
@@ -254,15 +258,6 @@ export default function ProgressionChart({ logs = [] }) {
 
   return (
     <div>
-      {!haslogs && (
-        <div
-          className="alert alert-info"
-          style={{ marginBottom: 'var(--space-md)', fontSize: '12px' }}
-        >
-          ℹ️ Showing <strong>sample data</strong> — log your first biometric entry to see your real progression.
-        </div>
-      )}
-
       {/* Glucose Trend Chart */}
       <div style={{ height: '280px', marginBottom: 'var(--space-xl)' }}>
         <Line

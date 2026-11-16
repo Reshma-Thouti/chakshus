@@ -95,8 +95,8 @@ export default function Navbar() {
             Overview
           </NavLink>
 
-          {/* Doctor Portal Link */}
-          {(!isAuthenticated || isDoctor) && (
+          {/* Doctor Portal Link (Only visible when logged in as Doctor) */}
+          {isAuthenticated && isDoctor && (
             <NavLink
               to="/doctor"
               style={({ isActive }) => ({
