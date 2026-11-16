@@ -1,22 +1,22 @@
 /**
- * routes/healthLogRoutes.js — STUB
+ * routes/healthLogRoutes.js
  *
- * Routes for submitting and querying daily health log entries.
- * Will be implemented in Phase 2.
- *
- * Planned endpoints:
- *   POST   /api/health-logs            → Submit a new daily log
- *   GET    /api/health-logs/:patientId → Get all logs for a patient
- *   GET    /api/health-logs/:patientId?startDate=&endDate= → Date-range query
- *   PUT    /api/health-logs/:id        → Correct an erroneous log
- *   DELETE /api/health-logs/:id        → Remove a log entry
+ * Daily Health Log biometric tracking routes.
  */
 
 const express = require('express');
 const router = express.Router();
+const {
+  createHealthLog,
+  getHealthLogsByPatient,
+  updateHealthLog,
+  deleteHealthLog,
+} = require('../controllers/healthLogController');
 
-router.get('/', (req, res) => {
-  res.status(501).json({ message: 'Health log routes — coming in Phase 2' });
-});
+router.post('/', createHealthLog);
+router.get('/:patientId', getHealthLogsByPatient);
+router.route('/:id')
+  .put(updateHealthLog)
+  .delete(deleteHealthLog);
 
 module.exports = router;

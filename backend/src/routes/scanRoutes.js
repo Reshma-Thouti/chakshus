@@ -1,23 +1,33 @@
 /**
- * routes/scanRoutes.js — STUB
+ * routes/scanRoutes.js
  *
- * Routes for fundus image upload and DR grading retrieval.
- * Will be implemented in Phase 4 (the Multer + ML bridge phase).
- *
- * Planned endpoints:
- *   POST   /api/scans            → Upload a fundus image (multipart/form-data)
- *                                   → Forwards to Python ML service
- *                                   → Saves DR grade to MongoDB
- *   GET    /api/scans/:patientId → List all scans for a patient
- *   GET    /api/scans/urgent     → List scans requiring urgent clinical review
- *   PUT    /api/scans/:id/grade  → Clinician manually overrides AI grade
+ * Clinical Scan Routes:
+ *  - POST   /api/scans            -> Upload image & run AI analysis
+ *  - GET    /api/scans/urgent     -> Fetch all scans flagged for urgent review
+ *  - GET    /api/scans/:patientId -> List scans for a patient
+ *  - PUT    /api/scans/:id/grade  -> Clinician override of AI grade
  */
 
 const express = require('express');
 const router = express.Router();
+const uploadFundus = require('../middleware/uploadMiddleware');
+const {
+  uploadAndAnalyzeScan,
+  getScansByPatient,
+  getUrgentScans,
+  overrideScanGrade,
+} = require('../controllers/scanController');
 
-router.get('/', (req, res) => {
-  res.status(501).json({ message: 'Scan routes — coming in Phase 4' });
-});
+// Urgent scans route must precede /:patientId to avoid route collision
+router.get('/urgent', getUrgentScans);
+
+// Upload and predict endpoint using Multer for single file with field name 'file'
+router.post('/', uploadFundus.single('file'), uploadAndAnalyzeScan);
+
+// Scans for a specific patient
+router.get('/:patientId', getScansByPatient);
+
+// Clinician grade override
+router.put('/:id/grade', overrideScanGrade);
 
 module.exports = router;

@@ -5,13 +5,9 @@
  *  1. Load environment variables from .env
  *  2. Connect to MongoDB
  *  3. Bootstrap the Express app with global middleware
- *  4. Mount route namespaces (stubs for now — to be expanded in Phase 2+)
- *  5. Start the HTTP server
- *
- * What this file should NOT do:
- *  - Contain any business logic (that belongs in controllers)
- *  - Contain any schema definitions (that belongs in models)
- *  - Contain any route handler callbacks (that belongs in routes)
+ *  4. Mount route namespaces (/api/patients, /api/health-logs, /api/scans)
+ *  5. Provide static serving for uploaded retinal scans
+ *  6. Global error handling and server startup
  */
 
 const express = require('express');
@@ -20,6 +16,9 @@ const path = require('path');
 require('dotenv').config();
 
 const connectDB = require('./src/config/db');
+const patientRoutes = require('./src/routes/patientRoutes');
+const healthLogRoutes = require('./src/routes/healthLogRoutes');
+const scanRoutes = require('./src/routes/scanRoutes');
 
 // ── Connect to MongoDB ───────────────────────────────────────
 connectDB();
@@ -48,44 +47,43 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 
 /**
- * URL-encoded body parser for traditional HTML form submissions.
+ * URL-encoded body parser for traditional form submissions.
  */
 app.use(express.urlencoded({ extended: false }));
 
 /**
  * Serve the uploads folder as a static directory so the React frontend
  * can render fundus images directly via their stored path.
- * Example URL: GET /uploads/scans/1718000000000-fundus.jpg
+ * Example URL: GET /uploads/scans/fundus-1718000000000-a1b2.jpg
  */
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ── Routes (Stubs — to be completed in Phase 2+) ─────────────
-/**
- * Route namespaces are intentionally kept as stubs here.
- * Each will be a separate Express Router defined in src/routes/.
- * We mount them now so the server structure is clear.
- */
+// ── Mount Application Routes ─────────────────────────────────
+app.use('/api/patients', patientRoutes);
+app.use('/api/health-logs', healthLogRoutes);
+app.use('/api/scans', scanRoutes);
 
-// Health-check endpoint — always keep this. Used by load balancers & monitoring.
+// Health-check endpoint — used by monitoring & load balancers
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     service: 'diabetic-vision-backend',
     timestamp: new Date().toISOString(),
     mongoState: require('mongoose').connection.readyState === 1 ? 'connected' : 'disconnected',
+    mlServiceUrl: process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000',
   });
 });
 
-// Placeholder — will be replaced with actual routers in Phase 2
+// API Root Information
 app.get('/api', (req, res) => {
   res.status(200).json({
     message: '🩺 Diabetic Vision Health Management System API',
     version: '1.0.0',
-    phase: 'Phase 1 — Backend Foundation',
     endpoints: {
-      patients: '/api/patients         [COMING IN PHASE 2]',
-      healthLogs: '/api/health-logs    [COMING IN PHASE 2]',
-      scans: '/api/scans               [COMING IN PHASE 4]',
+      patients: '/api/patients',
+      healthLogs: '/api/health-logs',
+      scans: '/api/scans',
+      health: '/api/health',
     },
   });
 });
@@ -99,10 +97,6 @@ app.use((req, res) => {
 });
 
 // ── Global Error Handler ─────────────────────────────────────
-/**
- * Express error-handling middleware must have exactly 4 arguments.
- * Any next(error) call in routes/controllers lands here.
- */
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error(`[ERROR] ${err.message}`);
@@ -110,13 +104,27 @@ app.use((err, req, res, next) => {
     console.error(err.stack);
   }
 
-  // Mongoose validation errors get a 400
+  // Multer-specific errors (file size, file filter)
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        message: 'Uploaded retinal image exceeds the 10 MB limit.',
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: `File upload error: ${err.message}`,
+    });
+  }
+
+  // Mongoose validation errors
   if (err.name === 'ValidationError') {
     const messages = Object.values(err.errors).map((e) => e.message);
     return res.status(400).json({ success: false, errors: messages });
   }
 
-  // Mongoose duplicate key error (e.g., duplicate email)
+  // Mongoose duplicate key error
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
     return res.status(409).json({
@@ -125,7 +133,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Default 500
+  // Default 500 error
   res.status(err.statusCode || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -146,4 +154,4 @@ app.listen(PORT, () => {
   console.log('');
 });
 
-module.exports = app; // exported for future integration testing
+module.exports = app;
