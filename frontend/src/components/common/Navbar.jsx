@@ -16,7 +16,7 @@ import EyeSymbol from './EyeSymbol.jsx';
 
 export default function Navbar() {
   const { selectedPatient, notification } = useAppContext();
-  const { user, isAuthenticated, isDoctor, isPatient, logout } = useAuth();
+  const { user, isAuthenticated, isDoctor, isPatient, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -135,12 +135,36 @@ export default function Navbar() {
             </NavLink>
           )}
 
+          {/* Admin Console Link (Only visible when logged in as Admin) */}
+          {isAuthenticated && isAdmin && (
+            <NavLink
+              to="/admin"
+              style={({ isActive }) => ({
+                color: isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.85)',
+                background: isActive ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.12)',
+                border: isActive ? '1px solid rgba(245, 158, 11, 0.6)' : '1px solid rgba(245, 158, 11, 0.3)',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease',
+              })}
+            >
+              <span>⚙️</span>
+              <span>Admin Console</span>
+            </NavLink>
+          )}
+
           {/* User Status / Auth Button */}
           {isAuthenticated && user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '8px' }}>
               <div style={{
-                background: isDoctor ? 'rgba(0, 194, 203, 0.15)' : 'rgba(255, 255, 255, 0.1)',
-                border: `1px solid ${isDoctor ? 'rgba(0, 194, 203, 0.4)' : 'rgba(255, 255, 255, 0.2)'}`,
+                background: isDoctor ? 'rgba(0, 194, 203, 0.15)' : isAdmin ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                border: `1px solid ${isDoctor ? 'rgba(0, 194, 203, 0.4)' : isAdmin ? 'rgba(245, 158, 11, 0.5)' : 'rgba(255, 255, 255, 0.2)'}`,
                 padding: '5px 12px',
                 borderRadius: '999px',
                 display: 'flex',
@@ -151,8 +175,8 @@ export default function Navbar() {
                   {user.name}
                 </span>
                 <span style={{
-                  background: isDoctor ? 'var(--remidio-cyan)' : '#E2E8F0',
-                  color: isDoctor ? '#0B192C' : '#1E293B',
+                  background: isDoctor ? 'var(--remidio-cyan)' : isAdmin ? '#F59E0B' : '#E2E8F0',
+                  color: isDoctor ? '#0B192C' : isAdmin ? '#1E293B' : '#1E293B',
                   fontSize: '9px',
                   fontWeight: 800,
                   padding: '1px 5px',
@@ -201,6 +225,21 @@ export default function Navbar() {
                 }}
               >
                 Patient Sign In
+              </NavLink>
+              <NavLink
+                to="/login?portal=admin"
+                className="btn btn-sm"
+                style={{
+                  fontSize: '12px',
+                  padding: '5px 12px',
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  color: '#FCD34D',
+                  border: '1px solid rgba(245, 158, 11, 0.5)',
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                }}
+              >
+                Admin
               </NavLink>
             </div>
           )}

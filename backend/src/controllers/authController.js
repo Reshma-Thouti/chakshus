@@ -69,6 +69,30 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
+  // 2b. Admin Registration
+  if (role === 'admin') {
+    const adminUser = await User.create({
+      name,
+      email: email.toLowerCase(),
+      password,
+      role: 'admin',
+    });
+
+    const token = adminUser.generateAuthToken();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Administrator account registered successfully.',
+      token,
+      user: {
+        id: adminUser._id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role,
+      },
+    });
+  }
+
   // 3. Patient Registration
   if (!assignedDoctorId) {
     return res.status(400).json({

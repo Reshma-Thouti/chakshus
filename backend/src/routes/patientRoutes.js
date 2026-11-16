@@ -17,11 +17,11 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 router.use(protect);
 
 router.route('/')
-  .get(authorize('doctor'), getPatients)
-  .post(authorize('doctor'), createPatient);
+  .get(authorize('doctor', 'admin'), getPatients)
+  .post(authorize('doctor', 'admin'), createPatient);
 
 router.route('/:id')
   .get(getPatientById)
-  .put(authorize('doctor'), updatePatient);
+  .put(authorize('doctor', 'admin'), updatePatient);
 
 module.exports = router;

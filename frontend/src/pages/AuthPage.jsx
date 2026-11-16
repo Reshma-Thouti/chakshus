@@ -18,10 +18,11 @@ import EyeSymbol from '../components/common/EyeSymbol';
 export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, register, isAuthenticated, user, isDoctor, isPatient } = useAuth();
+  const { login, register, isAuthenticated, user, isDoctor, isPatient, isAdmin } = useAuth();
 
-  // Selected portal tab: 'doctor' | 'patient'
-  const initialPortal = searchParams.get('portal') === 'patient' ? 'patient' : 'doctor';
+  // Selected portal tab: 'doctor' | 'patient' | 'admin'
+  const paramPortal = searchParams.get('portal');
+  const initialPortal = paramPortal === 'patient' ? 'patient' : paramPortal === 'admin' ? 'admin' : 'doctor';
   const [portal, setPortal] = useState(initialPortal);
 
   // Form mode: 'login' | 'register'
@@ -71,13 +72,15 @@ export default function AuthPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (isDoctor) {
+      if (isAdmin) {
+        navigate('/admin', { replace: true });
+      } else if (isDoctor) {
         navigate('/doctor', { replace: true });
       } else if (isPatient) {
         navigate(`/patient/${user.patientProfileId || user.id}`, { replace: true });
       }
     }
-  }, [isAuthenticated, user, isDoctor, isPatient, navigate]);
+  }, [isAuthenticated, user, isDoctor, isPatient, isAdmin, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,14 +92,25 @@ export default function AuthPage() {
       if (mode === 'login') {
         const res = await login(email, password, portal);
         setSuccessMsg(`Welcome, ${res.user.name}!`);
-        if (res.user.role === 'doctor') {
+        if (res.user.role === 'admin') {
+          navigate('/admin');
+        } else if (res.user.role === 'doctor') {
           navigate('/doctor');
         } else {
           navigate(`/patient/${res.user.patientProfileId || res.user.id}`);
         }
       } else {
         // Register
-        if (portal === 'doctor') {
+        if (portal === 'admin') {
+          await register({
+            name,
+            email,
+            password,
+            role: 'admin',
+          });
+          setSuccessMsg('Administrator account registered successfully!');
+          navigate('/admin');
+        } else if (portal === 'doctor') {
           await register({
             name,
             email,
@@ -167,13 +181,13 @@ export default function AuthPage() {
         </p>
       </div>
 
-      {/* ── Portal Selector Tabs (Doctor vs Patient) ──── */}
+      {/* ── Portal Selector Tabs (Doctor vs Patient vs Admin) ──── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '8px',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: '6px',
         background: '#E2E8F0',
-        padding: '6px',
+        padding: '5px',
         borderRadius: 'var(--radius-md)',
         marginBottom: 'var(--space-lg)',
       }}>
@@ -181,18 +195,18 @@ export default function AuthPage() {
           type="button"
           onClick={() => { setPortal('doctor'); setErrorMsg(''); }}
           style={{
-            padding: '12px 16px',
+            padding: '10px 12px',
             borderRadius: 'var(--radius-sm)',
             border: 'none',
             background: portal === 'doctor' ? '#0B192C' : 'transparent',
             color: portal === 'doctor' ? '#FFFFFF' : '#475569',
             fontWeight: 700,
-            fontSize: '14px',
+            fontSize: '13px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px',
+            gap: '6px',
             transition: 'all 0.2s ease',
             boxShadow: portal === 'doctor' ? '0 2px 8px rgba(11, 25, 44, 0.2)' : 'none',
           }}
@@ -204,23 +218,46 @@ export default function AuthPage() {
           type="button"
           onClick={() => { setPortal('patient'); setErrorMsg(''); loadDoctors(); }}
           style={{
-            padding: '12px 16px',
+            padding: '10px 12px',
             borderRadius: 'var(--radius-sm)',
             border: 'none',
             background: portal === 'patient' ? '#00878E' : 'transparent',
             color: portal === 'patient' ? '#FFFFFF' : '#475569',
             fontWeight: 700,
-            fontSize: '14px',
+            fontSize: '13px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px',
+            gap: '6px',
             transition: 'all 0.2s ease',
             boxShadow: portal === 'patient' ? '0 2px 8px rgba(0, 135, 142, 0.2)' : 'none',
           }}
         >
           Patient Portal
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPortal('admin'); setErrorMsg(''); }}
+          style={{
+            padding: '10px 12px',
+            borderRadius: 'var(--radius-sm)',
+            border: 'none',
+            background: portal === 'admin' ? '#D97706' : 'transparent',
+            color: portal === 'admin' ? '#FFFFFF' : '#475569',
+            fontWeight: 700,
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease',
+            boxShadow: portal === 'admin' ? '0 2px 8px rgba(217, 119, 6, 0.25)' : 'none',
+          }}
+        >
+          Admin Portal
         </button>
       </div>
 
@@ -353,7 +390,7 @@ export default function AuthPage() {
                 type="text"
                 className="input"
                 required
-                placeholder={portal === 'doctor' ? 'Dr. Full Name' : 'Patient Full Name'}
+                placeholder={portal === 'doctor' ? 'Dr. Full Name' : portal === 'admin' ? 'Administrator Name' : 'Patient Full Name'}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -366,7 +403,7 @@ export default function AuthPage() {
               type="email"
               className="input"
               required
-              placeholder={portal === 'doctor' ? 'doctor@hospital.org' : 'patient@domain.com'}
+              placeholder={portal === 'doctor' ? 'doctor@hospital.org' : portal === 'admin' ? 'admin@chakshus.org' : 'patient@domain.com'}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -525,11 +562,19 @@ export default function AuthPage() {
 
           <button
             type="submit"
-            className={`btn ${portal === 'doctor' ? 'btn-primary' : 'btn-cyan'} btn-lg`}
+            className="btn btn-lg"
             disabled={loading || isPatientRegisterBlocked}
-            style={{ marginTop: 'var(--space-sm)', width: '100%', justifyContent: 'center' }}
+            style={{
+              marginTop: 'var(--space-sm)',
+              width: '100%',
+              justifyContent: 'center',
+              background: portal === 'admin' ? '#D97706' : portal === 'doctor' ? 'var(--remidio-navy)' : 'var(--remidio-cyan)',
+              color: '#FFFFFF',
+              border: 'none',
+              fontWeight: 700,
+            }}
           >
-            {loading ? 'Authenticating...' : mode === 'login' ? `Sign In to ${portal === 'doctor' ? 'Doctor Portal' : 'Patient Portal'}` : `Create ${portal === 'doctor' ? 'Doctor' : 'Patient'} Account`}
+            {loading ? 'Authenticating...' : mode === 'login' ? `Sign In to ${portal === 'doctor' ? 'Doctor Portal' : portal === 'admin' ? 'Admin Console' : 'Patient Portal'}` : `Create ${portal === 'doctor' ? 'Doctor' : portal === 'admin' ? 'Administrator' : 'Patient'} Account`}
           </button>
         </form>
 
@@ -543,7 +588,7 @@ export default function AuthPage() {
                 onClick={() => { setMode('register'); setErrorMsg(''); loadDoctors(); }}
                 style={{ background: 'none', border: 'none', color: 'var(--remidio-cyan-hover)', fontWeight: 700, cursor: 'pointer', padding: 0 }}
               >
-                Register your {portal === 'doctor' ? 'Doctor' : 'Patient'} account first &rarr;
+                Register your {portal === 'doctor' ? 'Doctor' : portal === 'admin' ? 'Administrator' : 'Patient'} account first &rarr;
               </button>
             </span>
           ) : (

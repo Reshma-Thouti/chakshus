@@ -147,4 +147,32 @@ export const getUrgentScans = () =>
 export const overrideScanGrade = (scanId, gradeData) =>
   api.put(`/scans/${scanId}/grade`, gradeData);
 
+// ════════════════════════════════════════════════════════════
+// ADMINISTRATOR ENTERPRISE ACCESS ENDPOINTS
+// ════════════════════════════════════════════════════════════
+
+/** System-wide telemetry metrics & activity breakdown */
+export const getAdminOverview = () =>
+  api.get('/admin/overview');
+
+/** Unified list of all registered doctors with workload & patient counts */
+export const getAdminDoctors = () =>
+  api.get('/admin/doctors');
+
+/** Master registry of all patients across all clinicians */
+export const getAdminPatients = () =>
+  api.get('/admin/patients');
+
+/** Master repository of all retinal scans analyzed across the platform */
+export const getAdminScans = () =>
+  api.get('/admin/scans');
+
+/** Reassign an enrolled patient to a new clinician */
+export const reassignPatientDoctor = (patientId, newDoctorId) =>
+  api.put(`/admin/patients/${patientId}/reassign`, { newDoctorId });
+
+/** Admin archive/delete patient */
+export const deleteAdminPatient = (patientId) =>
+  api.delete(`/admin/patients/${patientId}`);
+
 export default api;

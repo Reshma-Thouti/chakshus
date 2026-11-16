@@ -20,6 +20,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const patientRoutes = require('./src/routes/patientRoutes');
 const healthLogRoutes = require('./src/routes/healthLogRoutes');
 const scanRoutes = require('./src/routes/scanRoutes');
+const adminRoutes = require('./src/routes/adminRoutes');
 
 // ── Connect to MongoDB ───────────────────────────────────────
 connectDB();
@@ -64,6 +65,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/health-logs', healthLogRoutes);
 app.use('/api/scans', scanRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health-check endpoint — used by monitoring & load balancers
 app.get('/api/health', (req, res) => {

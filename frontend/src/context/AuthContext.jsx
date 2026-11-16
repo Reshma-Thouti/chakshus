@@ -81,6 +81,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(token && user),
     isDoctor: user?.role === 'doctor',
     isPatient: user?.role === 'patient',
+    isAdmin: user?.role === 'admin',
     login,
     register,
     logout,

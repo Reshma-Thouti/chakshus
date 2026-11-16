@@ -17,6 +17,7 @@ import Home from './pages/Home.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 import PatientDashboard from './pages/PatientDashboard.jsx';
 import DoctorDashboard from './pages/DoctorDashboard.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { AppProvider } from './context/AppContext.jsx';
 
@@ -42,6 +43,17 @@ function PatientRoute({ children }) {
   return children;
 }
 
+function AdminRoute({ children }) {
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) return null;
+  if (!isAuthenticated || !isAdmin) {
+    return <Navigate to="/login?portal=admin" state={{ from: location }} replace />;
+  }
+  return children;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -61,6 +73,16 @@ export default function App() {
                   <DoctorRoute>
                     <DoctorDashboard />
                   </DoctorRoute>
+                }
+              />
+
+              {/* Protected Admin Console */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
                 }
               />
 

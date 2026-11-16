@@ -1,6 +1,6 @@
-﻿# PowerShell One-Click Launcher for DiaVision
+# PowerShell One-Click Launcher for चक्षुस् (Chakshus)
 Write-Host "=================================================================" -ForegroundColor Cyan
-Write-Host "🩺 Diabetic Vision Health Management System - Starting All Services" -ForegroundColor Green
+Write-Host "🩺 चक्षुस् (Chakshus) Tele-Oculomics System - Starting All Services" -ForegroundColor Green
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 # 1. Python ML Microservice
@@ -19,5 +19,6 @@ Write-Host ""
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host "🚀 All services launched!" -ForegroundColor Green
 Write-Host "👉 Open Dashboard in Browser: http://localhost:3000" -ForegroundColor White
+Write-Host "👉 Backend API Health       : http://localhost:5000/api/health" -ForegroundColor White
 Write-Host "👉 FastAPI Swagger Docs     : http://127.0.0.1:8000/docs" -ForegroundColor White
 Write-Host "=================================================================" -ForegroundColor Cyan

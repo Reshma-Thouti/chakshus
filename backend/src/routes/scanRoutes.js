@@ -25,18 +25,18 @@ const {
 router.use(protect);
 
 // Urgent scans route must precede /:patientId to avoid route collision
-router.get('/urgent', authorize('doctor'), getUrgentScans);
+router.get('/urgent', authorize('doctor', 'admin'), getUrgentScans);
 
 // Upload and predict endpoint using Multer for single file with field name 'file'
-router.post('/', authorize('doctor'), uploadFundus.single('file'), uploadAndAnalyzeScan);
+router.post('/', authorize('doctor', 'admin'), uploadFundus.single('file'), uploadAndAnalyzeScan);
 
-// Scans for a specific patient (Doctor views all, Patient views doctor-shared reports)
+// Scans for a specific patient (Doctor views all, Patient views doctor-shared reports, Admin views all)
 router.get('/:patientId', getScansByPatient);
 
 // Share scan report with patient portal
-router.put('/:id/share', authorize('doctor'), shareScanWithPatient);
+router.put('/:id/share', authorize('doctor', 'admin'), shareScanWithPatient);
 
 // Clinician grade override
-router.put('/:id/grade', authorize('doctor'), overrideScanGrade);
+router.put('/:id/grade', authorize('doctor', 'admin'), overrideScanGrade);
 
 module.exports = router;

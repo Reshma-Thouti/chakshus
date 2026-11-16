@@ -14,7 +14,7 @@ import EyeSymbol from '../components/common/EyeSymbol.jsx';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { isAuthenticated, isDoctor, isPatient, user } = useAuth();
+  const { isAuthenticated, isDoctor, isPatient, isAdmin, user } = useAuth();
 
   const handleDoctorClick = () => {
     if (isAuthenticated && isDoctor) {
@@ -29,6 +29,14 @@ export default function Home() {
       navigate(`/patient/${user?.patientProfileId || user?.id}`);
     } else {
       navigate('/login?portal=patient');
+    }
+  };
+
+  const handleAdminClick = () => {
+    if (isAuthenticated && isAdmin) {
+      navigate('/admin');
+    } else {
+      navigate('/login?portal=admin');
     }
   };
 
@@ -90,6 +98,13 @@ export default function Home() {
             >
               {isAuthenticated && isPatient ? 'Go to My Vision Portal' : 'Patient Portal'}
             </button>
+            <button
+              className="btn btn-outline btn-lg"
+              onClick={handleAdminClick}
+              style={{ color: '#FCD34D', borderColor: 'rgba(245, 158, 11, 0.6)', background: 'rgba(245, 158, 11, 0.15)' }}
+            >
+              {isAuthenticated && isAdmin ? 'Go to Admin Console' : 'Admin Portal'}
+            </button>
           </div>
         </div>
       </div>
@@ -127,8 +142,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Two Clinical Portals Section ──────────────────── */}
-      <div className="grid-2" style={{ marginBottom: 'var(--space-2xl)' }}>
+      {/* ── Three Clinical Portals Section ──────────────────── */}
+      <div className="grid-3" style={{ marginBottom: 'var(--space-2xl)' }}>
         {/* Doctor Entry Card */}
         <div
           className="card"
@@ -143,8 +158,8 @@ export default function Home() {
             </span>
             <span style={{ fontSize: '16px' }}>&rarr;</span>
           </div>
-          <h2 style={{ fontSize: '22px', marginBottom: '8px' }}>Doctor Portal</h2>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
+          <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Doctor Portal</h2>
+          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
             Ingest fundus photographs, view AI-predicted ICDR severity, enroll patients to your isolated roster, and transmit signed screening reports to patients.
           </p>
           <button className="btn btn-primary btn-full">
@@ -166,12 +181,35 @@ export default function Home() {
             </span>
             <span style={{ fontSize: '16px' }}>&rarr;</span>
           </div>
-          <h2 style={{ fontSize: '22px', marginBottom: '8px' }}>Patient Portal</h2>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
-            Log in to view retinal scan updates and certified recommendations from your attending ophthalmologist, and log daily fasting/post-meal glucose and blood pressure readings.
+          <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Patient Portal</h2>
+          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
+            Log in to view retinal scan updates and certified recommendations from your attending ophthalmologist, and log daily fasting/post-meal glucose readings.
           </p>
           <button className="btn btn-cyan btn-full">
             {isAuthenticated && isPatient ? 'View My Retinal Reports & Log Telemetry →' : 'Patient Portal Sign In →'}
+          </button>
+        </div>
+
+        {/* Admin Console Entry Card */}
+        <div
+          className="card"
+          style={{ cursor: 'pointer', transition: 'all 0.2s ease', border: '1.5px solid var(--color-border)' }}
+          onClick={handleAdminClick}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#F59E0B'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-md)' }}>
+            <span className="badge" style={{ background: '#FEF3C7', color: '#92400E' }}>
+              FOR ADMINISTRATORS
+            </span>
+            <span style={{ fontSize: '16px' }}>&rarr;</span>
+          </div>
+          <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Admin Console</h2>
+          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
+            Cross-system oversight of all certified clinicians, master registry of all enrolled patients, and universal repository of AI retinal diagnostics.
+          </p>
+          <button className="btn btn-full" style={{ background: '#D97706', color: '#FFFFFF', border: 'none', fontWeight: 700 }}>
+            {isAuthenticated && isAdmin ? 'Open Admin Governance Console →' : 'Administrator Sign In →'}
           </button>
         </div>
       </div>
