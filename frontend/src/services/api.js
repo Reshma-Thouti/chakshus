@@ -16,7 +16,8 @@ const api = axios.create({
 // ── Request Interceptor (JWT Token Injection) ────────────────
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('diavision_token');
+    const token =
+      localStorage.getItem('chakshus_token') || localStorage.getItem('diavision_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

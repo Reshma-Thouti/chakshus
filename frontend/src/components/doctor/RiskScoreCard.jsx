@@ -155,7 +155,7 @@ export default function RiskScoreCard({ scan, imageUrl, patientName, onScanUpdat
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-md)', paddingBottom: 'var(--space-sm)', borderBottom: '1px solid var(--color-border-subtle)' }}>
         <div>
           <span className="mono-tag" style={{ color: 'var(--remidio-cyan)', fontWeight: 700 }}>
-            REMIDIO MEDIOS AI DIAGNOSTIC REPORT
+            चक्षुस् &bull; AI CLINICAL DIAGNOSTIC REPORT
           </span>
           <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
             Protocol: ICDR 5-Scale &bull; Model: ResNet-18 DR v1.0

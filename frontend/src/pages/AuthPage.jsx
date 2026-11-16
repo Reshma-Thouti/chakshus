@@ -1,16 +1,17 @@
 /**
  * pages/AuthPage.jsx
  *
- * Dedicated Multi-Portal Login & Registration Interface.
+ * Dedicated Multi-Portal Login & Registration Interface for चक्षुस् (Chakshus).
  * Strictly separates:
- *  1. Doctor Diagnostic Portal (Clinical Workstation Access)
- *  2. Patient Vision Health Portal (Personal Glycemic & Retinal Report Access)
+ *  1. Doctor Portal (Clinical Diagnostic Workstation Access)
+ *  2. Patient Portal (Personal Glycemic & Retinal Health Reports)
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDoctorsList } from '../services/api';
+import EyeSymbol from '../components/common/EyeSymbol';
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -38,10 +39,10 @@ export default function AuthPage() {
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('1975-06-15');
   const [gender, setGender] = useState('Male');
-  const [phone, setPhone] = useState('+91 98765 00000');
+  const [phone, setPhone] = useState('');
   const [diabetesType, setDiabetesType] = useState('Type 2');
-  const [diabetesDurationYears, setDiabetesDurationYears] = useState('6');
-  const [baselineHbA1c, setBaselineHbA1c] = useState('7.5');
+  const [diabetesDurationYears, setDiabetesDurationYears] = useState('5');
+  const [baselineHbA1c, setBaselineHbA1c] = useState('7.0');
   const [hasHypertension, setHasHypertension] = useState(false);
 
   // UI status
@@ -131,63 +132,29 @@ export default function AuthPage() {
     }
   };
 
-  // Quick Demo fill buttons for hassle-free evaluation
-  const setQuickDoctorA = () => {
-    setPortal('doctor');
-    setMode('login');
-    setEmail('dr.sharma@diavision.com');
-    setPassword('password123');
-    setErrorMsg('');
-  };
-
-  const setQuickDoctorB = () => {
-    setPortal('doctor');
-    setMode('login');
-    setEmail('dr.malhotra@diavision.com');
-    setPassword('password123');
-    setErrorMsg('');
-  };
-
-  const setQuickPatient1 = () => {
-    setPortal('patient');
-    setMode('login');
-    setEmail('ramesh.kumar@example.com');
-    setPassword('password123');
-    setErrorMsg('');
-  };
-
-  const setQuickPatient3 = () => {
-    setPortal('patient');
-    setMode('login');
-    setEmail('rajesh.verma@example.com');
-    setPassword('password123');
-    setErrorMsg('');
-  };
-
   return (
-    <div style={{ maxWidth: '640px', margin: 'var(--space-xl) auto', padding: '0 var(--space-md)' }}>
+    <div style={{ maxWidth: '600px', margin: 'var(--space-xl) auto', padding: '0 var(--space-md)' }}>
       {/* ── Brand / Header ───────────────────────────── */}
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
         <div style={{
-          width: '54px',
-          height: '54px',
+          width: '56px',
+          height: '56px',
           borderRadius: '16px',
-          background: 'linear-gradient(135deg, #00C2CB 0%, #0B192C 100%)',
+          background: 'linear-gradient(135deg, rgba(0, 194, 203, 0.25) 0%, #0B192C 100%)',
+          border: '1.5px solid rgba(0, 194, 203, 0.45)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 8px 24px rgba(0, 194, 203, 0.35)',
-          color: '#FFFFFF',
-          fontSize: '28px',
+          boxShadow: '0 8px 24px rgba(0, 194, 203, 0.25)',
           margin: '0 auto var(--space-md)',
         }}>
-          👁️
+          <EyeSymbol size={32} color="var(--remidio-cyan, #00C2CB)" />
         </div>
-        <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--remidio-navy)', letterSpacing: '-0.02em', marginBottom: '6px' }}>
-          DiaVision Clinical Portal
+        <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--remidio-navy)', letterSpacing: '0.01em', marginBottom: '6px' }}>
+          चक्षुस् Portal
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', maxWidth: '440px', margin: '0 auto' }}>
-          Secure, multi-tenant tele-ophthalmology &amp; diabetic retinal monitoring system
+          CHAKSHUS &bull; Tele-Ophthalmic Diagnostics &amp; Retinal Health Platform
         </p>
       </div>
 
@@ -221,7 +188,7 @@ export default function AuthPage() {
             boxShadow: portal === 'doctor' ? '0 2px 8px rgba(11, 25, 44, 0.2)' : 'none',
           }}
         >
-          <span>🩺</span> Doctor Portal
+          Doctor Portal
         </button>
 
         <button
@@ -244,65 +211,8 @@ export default function AuthPage() {
             boxShadow: portal === 'patient' ? '0 2px 8px rgba(0, 135, 142, 0.2)' : 'none',
           }}
         >
-          <span>👤</span> Patient Portal
+          Patient Portal
         </button>
-      </div>
-
-      {/* ── Quick Demo Helper Banner ──────────────────── */}
-      <div style={{
-        background: 'rgba(0, 194, 203, 0.08)',
-        border: '1px dashed var(--remidio-cyan-hover)',
-        borderRadius: 'var(--radius-md)',
-        padding: '10px 14px',
-        marginBottom: 'var(--space-md)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-      }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          ⚡ 1-Click Quick Demo Accounts (Multi-Tenancy Verification)
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {portal === 'doctor' ? (
-            <>
-              <button
-                type="button"
-                onClick={setQuickDoctorA}
-                className="btn btn-outline btn-sm"
-                style={{ fontSize: '11px', background: '#FFFFFF' }}
-              >
-                🩺 Dr. Sharma (Doctor A)
-              </button>
-              <button
-                type="button"
-                onClick={setQuickDoctorB}
-                className="btn btn-outline btn-sm"
-                style={{ fontSize: '11px', background: '#FFFFFF' }}
-              >
-                🩺 Dr. Malhotra (Doctor B)
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={setQuickPatient1}
-                className="btn btn-outline btn-sm"
-                style={{ fontSize: '11px', background: '#FFFFFF' }}
-              >
-                👤 Ramesh Kumar (Dr. Sharma's Patient)
-              </button>
-              <button
-                type="button"
-                onClick={setQuickPatient3}
-                className="btn btn-outline btn-sm"
-                style={{ fontSize: '11px', background: '#FFFFFF' }}
-              >
-                👤 Rajesh Verma (Dr. Malhotra's Patient)
-              </button>
-            </>
-          )}
-        </div>
       </div>
 
       {/* ── Main Auth Card ───────────────────────────── */}
@@ -339,7 +249,7 @@ export default function AuthPage() {
               cursor: 'pointer',
             }}
           >
-            Create New Account
+            Register Account
           </button>
         </div>
 
@@ -387,7 +297,7 @@ export default function AuthPage() {
                 type="text"
                 className="input"
                 required
-                placeholder={portal === 'doctor' ? 'Dr. Ananya Sharma' : 'Ramesh Kumar'}
+                placeholder={portal === 'doctor' ? 'Dr. Name' : 'Patient Name'}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -400,7 +310,7 @@ export default function AuthPage() {
               type="email"
               className="input"
               required
-              placeholder={portal === 'doctor' ? 'doctor@clinic.com' : 'patient@email.com'}
+              placeholder={portal === 'doctor' ? 'doctor@hospital.org' : 'patient@domain.com'}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -422,7 +332,7 @@ export default function AuthPage() {
           {mode === 'register' && portal === 'doctor' && (
             <>
               <div>
-                <label className="label">Specialization</label>
+                <label className="label">Clinical Specialization</label>
                 <input
                   type="text"
                   className="input"
@@ -442,12 +352,12 @@ export default function AuthPage() {
             </>
           )}
 
-          {/* Patient Extra Fields on Register (Doctor Allotment & Clinical Baseline) */}
+          {/* Patient Extra Fields on Register */}
           {mode === 'register' && portal === 'patient' && (
             <>
               <div>
                 <label className="label" style={{ color: 'var(--remidio-cyan-hover)', fontWeight: 700 }}>
-                  Select Your Attending Doctor * (Allotment)
+                  Select Attending Ophthalmologist *
                 </label>
                 <select
                   className="input"
@@ -457,7 +367,7 @@ export default function AuthPage() {
                   style={{ fontWeight: 600 }}
                 >
                   {doctors.length === 0 ? (
-                    <option value="">No registered doctors found. Register a doctor first!</option>
+                    <option value="">No registered doctors found</option>
                   ) : (
                     doctors.map((doc) => (
                       <option key={doc._id} value={doc._id}>
@@ -467,7 +377,7 @@ export default function AuthPage() {
                   )}
                 </select>
                 <span className="text-xs text-muted" style={{ display: 'block', marginTop: '4px' }}>
-                  🔒 Your retinal scans and health updates will only be accessible to this attending clinician.
+                  🔒 Your retinal scans and telemetry are strictly accessible only to your assigned clinician.
                 </span>
               </div>
 
@@ -533,10 +443,11 @@ export default function AuthPage() {
                   />
                 </div>
                 <div>
-                  <label className="label">Phone</label>
+                  <label className="label">Phone Number</label>
                   <input
                     type="tel"
                     className="input"
+                    placeholder="+91"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />
@@ -561,7 +472,7 @@ export default function AuthPage() {
             disabled={loading}
             style={{ marginTop: 'var(--space-sm)', width: '100%', justifyContent: 'center' }}
           >
-            {loading ? 'Authenticating...' : mode === 'login' ? `Sign In to ${portal === 'doctor' ? 'Doctor Workstation' : 'Patient Portal'}` : `Create ${portal === 'doctor' ? 'Doctor' : 'Patient'} Account`}
+            {loading ? 'Authenticating...' : mode === 'login' ? `Sign In to ${portal === 'doctor' ? 'Doctor Portal' : 'Patient Portal'}` : `Create ${portal === 'doctor' ? 'Doctor' : 'Patient'} Account`}
           </button>
         </form>
       </div>

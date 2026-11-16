@@ -13,22 +13,25 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const cached = localStorage.getItem('diavision_user');
+    const cached = localStorage.getItem('chakshus_user') || localStorage.getItem('diavision_user');
     return cached ? JSON.parse(cached) : null;
   });
-  const [token, setToken] = useState(() => localStorage.getItem('diavision_token') || null);
+  const [token, setToken] = useState(
+    () => localStorage.getItem('chakshus_token') || localStorage.getItem('diavision_token') || null
+  );
   const [loading, setLoading] = useState(true);
 
   // Validate existing token on mount
   useEffect(() => {
     async function initAuth() {
-      const storedToken = localStorage.getItem('diavision_token');
+      const storedToken =
+        localStorage.getItem('chakshus_token') || localStorage.getItem('diavision_token');
       if (storedToken) {
         try {
           const res = await getAuthMe();
           if (res?.user) {
             setUser(res.user);
-            localStorage.setItem('diavision_user', JSON.stringify(res.user));
+            localStorage.setItem('chakshus_user', JSON.stringify(res.user));
           }
         } catch (err) {
           console.warn('Session expired or invalid, logging out:', err.message);
@@ -45,8 +48,8 @@ export function AuthProvider({ children }) {
     if (res?.token && res?.user) {
       setToken(res.token);
       setUser(res.user);
-      localStorage.setItem('diavision_token', res.token);
-      localStorage.setItem('diavision_user', JSON.stringify(res.user));
+      localStorage.setItem('chakshus_token', res.token);
+      localStorage.setItem('chakshus_user', JSON.stringify(res.user));
     }
     return res;
   }, []);
@@ -56,8 +59,8 @@ export function AuthProvider({ children }) {
     if (res?.token && res?.user) {
       setToken(res.token);
       setUser(res.user);
-      localStorage.setItem('diavision_token', res.token);
-      localStorage.setItem('diavision_user', JSON.stringify(res.user));
+      localStorage.setItem('chakshus_token', res.token);
+      localStorage.setItem('chakshus_user', JSON.stringify(res.user));
     }
     return res;
   }, []);
@@ -65,6 +68,8 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     setUser(null);
     setToken(null);
+    localStorage.removeItem('chakshus_token');
+    localStorage.removeItem('chakshus_user');
     localStorage.removeItem('diavision_token');
     localStorage.removeItem('diavision_user');
   }, []);

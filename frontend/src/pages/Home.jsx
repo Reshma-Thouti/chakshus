@@ -1,16 +1,16 @@
 /**
  * pages/Home.jsx
  *
- * Remidio-Inspired Landing & System Portal.
+ * Overview & Portal Gateway for चक्षुस् (Chakshus).
  * Themes:
- *  - "Make it Simple" — Transforming Eye Health through Point-of-Care Edge-AI
- *  - Primary navigation to Doctor Workstation and Patient Oculomics Portal
- *  - Tele-ophthalmology metrics & clinical validation banners
+ *  - Primary navigation to Doctor Workstation and Patient Vision Health Portal
+ *  - Automated tele-retinal classification & longitudinal metabolic monitoring
  */
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import EyeSymbol from '../components/common/EyeSymbol.jsx';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -34,7 +34,7 @@ export default function Home() {
 
   return (
     <div>
-      {/* ── Remidio-Inspired MedTech Hero ─────────────── */}
+      {/* ── MedTech Hero ─────────────── */}
       <div style={{
         background: 'linear-gradient(135deg, #07111D 0%, #0F1D2F 60%, #162E4A 100%)',
         borderRadius: 'var(--radius-xl)',
@@ -60,19 +60,20 @@ export default function Home() {
 
         <div style={{ maxWidth: '820px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(0, 194, 203, 0.15)', border: '1px solid rgba(0, 194, 203, 0.4)', padding: '4px 12px', borderRadius: '999px', marginBottom: 'var(--space-md)' }}>
-            <span style={{ color: 'var(--remidio-cyan)', fontWeight: 800, fontSize: '11px', letterSpacing: '0.06em' }}>
-              ✦ REMIDIO-INSPIRED OCULOMICS
+            <EyeSymbol size={16} color="var(--remidio-cyan, #00C2CB)" />
+            <span style={{ color: 'var(--remidio-cyan)', fontWeight: 800, fontSize: '12px', letterSpacing: '0.06em' }}>
+              चक्षुस् &bull; CHAKSHUS
             </span>
             <span style={{ color: '#FFFFFF', opacity: 0.6, fontSize: '11px' }}>|</span>
-            <span style={{ color: '#FFFFFF', fontSize: '11px', fontWeight: 500 }}>Eliminating Preventable Blindness</span>
+            <span style={{ color: '#FFFFFF', fontSize: '11px', fontWeight: 500 }}>AI Retinal Vision Health Platform</span>
           </div>
 
-          <h1 style={{ fontSize: '38px', fontWeight: 800, lineHeight: 1.15, color: '#FFFFFF', marginBottom: 'var(--space-md)' }}>
-            AI-Powered Retinal Diagnostics &amp; Longitudinal Metabolic Health
+          <h1 style={{ fontSize: '38px', fontWeight: 800, lineHeight: 1.15, color: '#FFFFFF', marginBottom: 'var(--space-md)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+            चक्षुस् : AI-Powered Retinal Diagnostics &amp; Longitudinal Metabolic Health
           </h1>
 
           <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.8)', lineHeight: 1.6, marginBottom: 'var(--space-xl)', maxWidth: '680px' }}>
-            Empowering ophthalmologists with point-of-care, non-mydriatic fundus classification and seamless direct transmission of clinical screening reports to patient portals.
+            Empowering ophthalmologists with non-mydriatic fundus classification and direct transmission of verified clinical screening summaries to patient portals.
           </p>
 
           <div style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
@@ -80,14 +81,14 @@ export default function Home() {
               className="btn btn-cyan btn-lg"
               onClick={handleDoctorClick}
             >
-              🩺 {isAuthenticated && isDoctor ? 'Go to Doctor Workstation' : 'Doctor Portal Sign In'}
+              {isAuthenticated && isDoctor ? 'Go to Doctor Workstation' : 'Doctor Portal'}
             </button>
             <button
               className="btn btn-outline btn-lg"
               onClick={handlePatientClick}
               style={{ color: '#FFFFFF', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.06)' }}
             >
-              📋 {isAuthenticated && isPatient ? 'Go to My Vision Portal' : 'Patient Portal Sign In'}
+              {isAuthenticated && isPatient ? 'Go to My Vision Portal' : 'Patient Portal'}
             </button>
           </div>
         </div>
@@ -96,15 +97,19 @@ export default function Home() {
       {/* ── Key Feature Pillars ───────────────────────── */}
       <div className="grid-3" style={{ marginBottom: 'var(--space-2xl)' }}>
         <div className="card" style={{ borderTop: '3px solid var(--remidio-cyan)' }}>
-          <div style={{ fontSize: '32px', marginBottom: 'var(--space-sm)' }}>⚡</div>
+          <div style={{ marginBottom: 'var(--space-sm)' }}>
+            <EyeSymbol size={28} color="var(--remidio-cyan)" />
+          </div>
           <h3 style={{ fontSize: '17px', marginBottom: '6px' }}>Edge-AI Automated Triage</h3>
           <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>
-            Instant classification for <strong>Referable Diabetic Retinopathy</strong> within 2.5 seconds using PyTorch ResNet-18 neural networks.
+            Rapid automated classification for <strong>Referable Diabetic Retinopathy</strong> using deep neural networks trained on clinical fundus datasets.
           </p>
         </div>
 
         <div className="card" style={{ borderTop: '3px solid #10B981' }}>
-          <div style={{ fontSize: '32px', marginBottom: 'var(--space-sm)' }}>🔬</div>
+          <div style={{ marginBottom: 'var(--space-sm)' }}>
+            <EyeSymbol size={28} color="#10B981" />
+          </div>
           <h3 style={{ fontSize: '17px', marginBottom: '6px' }}>Multi-Spectral Retinal Lens</h3>
           <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>
             Toggle between True-Color, Red-Free (Green channel vessel enhancement), and AI Class Activation Maps (CAM lesion heatmaps).
@@ -112,10 +117,12 @@ export default function Home() {
         </div>
 
         <div className="card" style={{ borderTop: '3px solid #6366F1' }}>
-          <div style={{ fontSize: '32px', marginBottom: 'var(--space-sm)' }}>📈</div>
+          <div style={{ marginBottom: 'var(--space-sm)' }}>
+            <EyeSymbol size={28} color="#6366F1" />
+          </div>
           <h3 style={{ fontSize: '17px', marginBottom: '6px' }}>Direct Report Synchronization</h3>
           <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>
-            Doctors review scans and send official signed diagnostic summaries directly to their allotted patient's portal with 1 click.
+            Clinicians review retinal scans and transmit signed diagnostic summaries directly to their patient's personal portal.
           </p>
         </div>
       </div>
@@ -134,14 +141,14 @@ export default function Home() {
             <span className="badge" style={{ background: 'var(--remidio-cyan-light)', color: 'var(--remidio-cyan-hover)' }}>
               FOR OPHTHALMOLOGISTS
             </span>
-            <span style={{ fontSize: '20px' }}>➔</span>
+            <span style={{ fontSize: '16px' }}>&rarr;</span>
           </div>
-          <h2 style={{ fontSize: '22px', marginBottom: '8px' }}>Ophthalmic Diagnostic Workstation</h2>
+          <h2 style={{ fontSize: '22px', marginBottom: '8px' }}>Doctor Portal</h2>
           <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
-            Ingest 45° non-mydriatic fundus photographs, view AI-predicted ICDR Grade 0–4 severity, enroll patients to your isolated roster, and transmit signed screening reports to patients.
+            Ingest fundus photographs, view AI-predicted ICDR severity, enroll patients to your isolated roster, and transmit signed screening reports to patients.
           </p>
           <button className="btn btn-primary btn-full">
-            {isAuthenticated && isDoctor ? 'Open Workstation & Review Scans →' : 'Clinician Login / Sign Up →'}
+            {isAuthenticated && isDoctor ? 'Open Workstation & Review Scans →' : 'Doctor Portal Sign In →'}
           </button>
         </div>
 
@@ -157,14 +164,14 @@ export default function Home() {
             <span className="badge" style={{ background: '#ECFDF5', color: '#065F46' }}>
               FOR PATIENTS
             </span>
-            <span style={{ fontSize: '20px' }}>➔</span>
+            <span style={{ fontSize: '16px' }}>&rarr;</span>
           </div>
-          <h2 style={{ fontSize: '22px', marginBottom: '8px' }}>Patient Vision Health Portal</h2>
+          <h2 style={{ fontSize: '22px', marginBottom: '8px' }}>Patient Portal</h2>
           <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
             Log in to view retinal scan updates and certified recommendations from your attending ophthalmologist, and log daily fasting/post-meal glucose and blood pressure readings.
           </p>
           <button className="btn btn-cyan btn-full">
-            {isAuthenticated && isPatient ? 'View My Retinal Reports & Log Telemetry →' : 'Patient Login / Register →'}
+            {isAuthenticated && isPatient ? 'View My Retinal Reports & Log Telemetry →' : 'Patient Portal Sign In →'}
           </button>
         </div>
       </div>

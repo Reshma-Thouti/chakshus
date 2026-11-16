@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { getPatientById, getHealthLogs, createHealthLog, getPatientScans } from '../services/api.js';
 import BiometricForm from '../components/patient/BiometricForm.jsx';
 import ProgressionChart from '../components/patient/ProgressionChart.jsx';
+import EyeSymbol from '../components/common/EyeSymbol.jsx';
 
 function latestGlucoseStatus(value, type) {
   if (!value) return null;
@@ -170,7 +171,7 @@ export default function PatientDashboard() {
         <div className="card-header" style={{ marginBottom: 'var(--space-md)' }}>
           <div>
             <h2 className="card-title" style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>👁️</span> Retinal Screening Reports &amp; Doctor's Updates
+              <EyeSymbol size={20} color="var(--remidio-cyan, #00C2CB)" /> Retinal Screening Reports &amp; Doctor's Updates
             </h2>
             <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
               Official diagnostic summaries published by your attending ophthalmologist ({doctorDisplayName})

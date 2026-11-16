@@ -1,18 +1,18 @@
 /**
  * components/common/Navbar.jsx
  *
- * Remidio-inspired Clinical Header & Navigation Bar with Auth Integration.
+ * Clinical Header & Navigation Bar for चक्षुस् (Chakshus).
  * Features:
- *  - Diagnostic system telemetry top-bar (AI engine status, camera calibration)
- *  - High-precision medical branding
+ *  - High-precision medical branding with Sanskrit name चक्षुस् and vector eye emblem
  *  - Strict role-based navigation: Doctor vs Patient
- *  - Current authenticated identity pill with Logout action
+ *  - Authenticated identity pill with Logout action
  */
 
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
+import EyeSymbol from './EyeSymbol.jsx';
 
 export default function Navbar() {
   const { selectedPatient, notification } = useAppContext();
@@ -26,23 +26,6 @@ export default function Navbar() {
 
   return (
     <header style={{ position: 'sticky', top: 0, zIndex: 100 }}>
-      {/* ── Remidio Device & System Telemetry Bar ─────── */}
-      <div className="clinical-topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span>
-            <span className="status-dot" />
-            MEDIOS AI ENGINE: <strong>ONLINE (PyTorch ResNet-18)</strong>
-          </span>
-          <span style={{ opacity: 0.6 }}>|</span>
-          <span style={{ opacity: 0.85 }}>OPTICAL PIPELINE: <strong>45° NON-MYDRIATIC FUNDUS</strong></span>
-          <span style={{ opacity: 0.6 }}>|</span>
-          <span style={{ opacity: 0.85 }}>CALIBRATION: <strong>ISO 13485 COMPLIANT</strong></span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: 'var(--remidio-cyan)', fontWeight: 600 }}>POINT-OF-CARE TELE-OCULOMICS</span>
-        </div>
-      </div>
-
       {/* ── Main Navigation Bar ──────────────────────── */}
       <nav style={{
         background: 'var(--remidio-navy)',
@@ -55,25 +38,24 @@ export default function Navbar() {
         boxShadow: '0 4px 14px rgba(7, 17, 29, 0.25)',
       }}>
         {/* Brand */}
-        <NavLink to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <NavLink to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            width: '36px',
-            height: '36px',
+            width: '38px',
+            height: '38px',
             borderRadius: '10px',
-            background: 'linear-gradient(135deg, #00C2CB 0%, #0F1D2F 100%)',
+            background: 'linear-gradient(135deg, rgba(0, 194, 203, 0.25) 0%, rgba(15, 29, 47, 0.9) 100%)',
+            border: '1px solid rgba(0, 194, 203, 0.45)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 12px rgba(0, 194, 203, 0.4)',
-            color: '#FFFFFF',
-            fontSize: '20px',
+            boxShadow: '0 0 14px rgba(0, 194, 203, 0.3)',
           }}>
-            👁️
+            <EyeSymbol size={22} color="var(--remidio-cyan, #00C2CB)" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
-                DiaVision
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.01em', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                चक्षुस्
               </span>
               <span style={{
                 background: 'rgba(0, 194, 203, 0.2)',
@@ -87,8 +69,8 @@ export default function Navbar() {
                 AI-MED
               </span>
             </div>
-            <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              Remidio-Class Retinal Diagnostics
+            <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.65)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              CHAKSHUS &bull; Retinal Diagnostics
             </div>
           </div>
         </NavLink>
@@ -129,7 +111,7 @@ export default function Navbar() {
                 transition: 'all 0.15s ease',
               })}
             >
-              🩺 Doctor Workstation
+              Doctor Workstation
             </NavLink>
           )}
 
@@ -149,7 +131,7 @@ export default function Navbar() {
                 transition: 'all 0.15s ease',
               })}
             >
-              📋 My Vision Health Portal
+              My Health Portal
             </NavLink>
           )}
 
@@ -165,7 +147,6 @@ export default function Navbar() {
                 alignItems: 'center',
                 gap: '6px',
               }}>
-                <span style={{ fontSize: '13px' }}>{isDoctor ? '🩺' : '👤'}</span>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>
                   {user.name}
                 </span>

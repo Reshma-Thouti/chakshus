@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import EyeSymbol from '../common/EyeSymbol';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 'image/bmp'];
@@ -109,9 +110,14 @@ export default function ScanUpload({ patientId, onUpload, isUploading = false })
               border: `1.5px solid ${formMeta.eye === 'Right' ? 'var(--remidio-cyan)' : 'var(--color-border)'}`,
               boxShadow: formMeta.eye === 'Right' ? '0 0 10px rgba(0, 194, 203, 0.2)' : 'none',
               padding: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
             }}
           >
-            👁️ <strong>OD (Right Eye)</strong>
+            <EyeSymbol size={16} color={formMeta.eye === 'Right' ? '#00C2CB' : '#64748B'} />
+            <strong>OD (Right Eye)</strong>
           </button>
 
           <button
@@ -124,9 +130,14 @@ export default function ScanUpload({ patientId, onUpload, isUploading = false })
               border: `1.5px solid ${formMeta.eye === 'Left' ? 'var(--remidio-cyan)' : 'var(--color-border)'}`,
               boxShadow: formMeta.eye === 'Left' ? '0 0 10px rgba(0, 194, 203, 0.2)' : 'none',
               padding: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
             }}
           >
-            👁️ <strong>OS (Left Eye)</strong>
+            <EyeSymbol size={16} color={formMeta.eye === 'Left' ? '#00C2CB' : '#64748B'} />
+            <strong>OS (Left Eye)</strong>
           </button>
         </div>
       </div>
