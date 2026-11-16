@@ -29,10 +29,25 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const message =
+    let message =
       error.response?.data?.message ||
       error.message ||
       'An unexpected error occurred';
+
+    // If Vite proxy returns 500 or ECONNREFUSED when backend is down
+    if (
+      error.response?.status === 500 &&
+      (!error.response.data ||
+        typeof error.response.data === 'string' ||
+        !error.response.data.message)
+    ) {
+      message =
+        'Backend server (Port 5000) is unreachable. Please ensure the backend is running (run start-system.bat or npm run dev in backend).';
+    } else if (error.code === 'ERR_NETWORK') {
+      message =
+        'Network error: Unable to reach the backend API server on port 5000.';
+    }
+
     return Promise.reject(new Error(message));
   }
 );
