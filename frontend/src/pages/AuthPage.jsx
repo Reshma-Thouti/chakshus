@@ -199,91 +199,11 @@ export default function AuthPage() {
           <EyeSymbol size={32} color="var(--remidio-cyan, #00C2CB)" />
         </div>
         <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--remidio-navy)', letterSpacing: '0.01em', marginBottom: '6px' }}>
-          चक्षुस् Portal
+          चक्षुस् User Portal
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', maxWidth: '440px', margin: '0 auto' }}>
           CHAKSHUS &bull; Tele-Ophthalmic Diagnostics &amp; Retinal Health Platform
         </p>
-      </div>
-
-      {/* ── Portal Selector Tabs (Doctor vs Patient vs Admin) ──── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: '6px',
-        background: '#E2E8F0',
-        padding: '5px',
-        borderRadius: 'var(--radius-md)',
-        marginBottom: 'var(--space-lg)',
-      }}>
-        <button
-          type="button"
-          onClick={() => { setPortal('doctor'); setErrorMsg(''); }}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 'var(--radius-sm)',
-            border: 'none',
-            background: portal === 'doctor' ? '#0B192C' : 'transparent',
-            color: portal === 'doctor' ? '#FFFFFF' : '#475569',
-            fontWeight: 700,
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            boxShadow: portal === 'doctor' ? '0 2px 8px rgba(11, 25, 44, 0.2)' : 'none',
-          }}
-        >
-          Doctor Portal
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setPortal('patient'); setErrorMsg(''); loadDoctors(); }}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 'var(--radius-sm)',
-            border: 'none',
-            background: portal === 'patient' ? '#00878E' : 'transparent',
-            color: portal === 'patient' ? '#FFFFFF' : '#475569',
-            fontWeight: 700,
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            boxShadow: portal === 'patient' ? '0 2px 8px rgba(0, 135, 142, 0.2)' : 'none',
-          }}
-        >
-          Patient Portal
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setPortal('admin'); setErrorMsg(''); }}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 'var(--radius-sm)',
-            border: 'none',
-            background: portal === 'admin' ? '#D97706' : 'transparent',
-            color: portal === 'admin' ? '#FFFFFF' : '#475569',
-            fontWeight: 700,
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            boxShadow: portal === 'admin' ? '0 2px 8px rgba(217, 119, 6, 0.25)' : 'none',
-          }}
-        >
-          Admin Portal
-        </button>
       </div>
 
       {/* ── Main Auth Card ───────────────────────────── */}
@@ -323,6 +243,89 @@ export default function AuthPage() {
             Register Account
           </button>
         </div>
+
+        {/* ── Role Selector: Doctor vs Patient ── */}
+        {portal === 'admin' ? (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            color: '#B45309',
+            padding: '10px 14px',
+            borderRadius: 'var(--radius-md)',
+            marginBottom: 'var(--space-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}>
+            <span style={{ fontWeight: 800, fontSize: '13px' }}>🛡️ Administrator Access Mode</span>
+            <button
+              type="button"
+              onClick={() => { setPortal('doctor'); setErrorMsg(''); }}
+              style={{ background: 'none', border: 'none', color: '#B45309', textDecoration: 'underline', fontSize: '12px', cursor: 'pointer', fontWeight: 700 }}
+            >
+              Switch to Doctor / Patient Login &rarr;
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 'var(--space-lg)' }}>
+            <label className="label" style={{ fontWeight: 800, color: 'var(--remidio-navy)', marginBottom: '8px', fontSize: '13px' }}>
+              {mode === 'login' ? 'I am signing in as a: *' : 'I want to register as a: *'}
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => { setPortal('doctor'); setErrorMsg(''); }}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: portal === 'doctor' ? '2px solid #00C2CB' : '1.5px solid var(--color-border)',
+                  background: portal === 'doctor' ? 'rgba(0, 194, 203, 0.08)' : '#FFFFFF',
+                  color: portal === 'doctor' ? 'var(--remidio-navy)' : 'var(--color-text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: portal === 'doctor' ? '0 2px 8px rgba(0, 194, 203, 0.2)' : 'none',
+                }}
+              >
+                <span style={{ fontSize: '20px' }}>👨‍⚕️</span>
+                <span>Doctor / Clinician</span>
+                {portal === 'doctor' && <span style={{ color: '#00C2CB', fontWeight: 800 }}>✓</span>}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setPortal('patient'); setErrorMsg(''); loadDoctors(); }}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: portal === 'patient' ? '2px solid #00878E' : '1.5px solid var(--color-border)',
+                  background: portal === 'patient' ? 'rgba(0, 135, 142, 0.08)' : '#FFFFFF',
+                  color: portal === 'patient' ? '#00878E' : 'var(--color-text-secondary)',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: portal === 'patient' ? '0 2px 8px rgba(0, 135, 142, 0.2)' : 'none',
+                }}
+              >
+                <span style={{ fontSize: '20px' }}>👤</span>
+                <span>Patient</span>
+                {portal === 'patient' && <span style={{ color: '#00878E', fontWeight: 800 }}>✓</span>}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Status Alerts */}
         {errorMsg && (
@@ -678,6 +681,27 @@ export default function AuthPage() {
                 Sign In to your account &rarr;
               </button>
             </span>
+          )}
+        </div>
+
+        {/* ── Administrator Access Switch ── */}
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-md)', fontSize: '12px' }}>
+          {portal === 'admin' ? (
+            <button
+              type="button"
+              onClick={() => { setPortal('doctor'); setErrorMsg(''); }}
+              style={{ background: 'none', border: 'none', color: 'var(--remidio-cyan-hover)', cursor: 'pointer', fontWeight: 600 }}
+            >
+              ← Back to User Login (Doctor / Patient)
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setPortal('admin'); setErrorMsg(''); }}
+              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '11px' }}
+            >
+              ⚙️ Administrator Sign In &rarr;
+            </button>
           )}
         </div>
       </div>

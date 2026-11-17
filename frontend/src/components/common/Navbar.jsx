@@ -203,28 +203,16 @@ export default function Navbar() {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
               <NavLink
-                to="/login?portal=doctor"
-                className="btn btn-outline btn-sm"
-                style={{
-                  fontSize: '12px',
-                  color: '#FFFFFF',
-                  borderColor: 'rgba(255, 255, 255, 0.3)',
-                  padding: '5px 12px',
-                  textDecoration: 'none',
-                }}
-              >
-                Doctor Sign In
-              </NavLink>
-              <NavLink
-                to="/login?portal=patient"
+                to="/login"
                 className="btn btn-cyan btn-sm"
                 style={{
-                  fontSize: '12px',
-                  padding: '5px 12px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  padding: '6px 14px',
                   textDecoration: 'none',
                 }}
               >
-                Patient Sign In
+                Sign In / Register
               </NavLink>
               <NavLink
                 to="/login?portal=admin"
