@@ -200,6 +200,10 @@ export const approveAdminRequest = (userId) =>
 export const rejectAdminRequest = (userId) =>
   api.put(`/admin/requests/${userId}/reject`);
 
+/** Delete / permanently remove a registration request */
+export const deleteAdminRequest = (userId) =>
+  api.delete(`/admin/requests/${userId}`);
+
 /** Admin archive/delete patient */
 export const deleteAdminPatient = (patientId) =>
   api.delete(`/admin/patients/${patientId}`);

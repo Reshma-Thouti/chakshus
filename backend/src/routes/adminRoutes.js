@@ -17,6 +17,7 @@ const {
   getRegistrationRequests,
   approveRegistrationRequest,
   rejectRegistrationRequest,
+  deleteRegistrationRequest,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -31,6 +32,7 @@ router.get('/overview', getAdminOverview);
 router.get('/requests', getRegistrationRequests);
 router.put('/requests/:id/approve', approveRegistrationRequest);
 router.put('/requests/:id/reject', rejectRegistrationRequest);
+router.delete('/requests/:id', deleteRegistrationRequest);
 
 // Doctor directory & workload
 router.get('/doctors', getAdminDoctors);

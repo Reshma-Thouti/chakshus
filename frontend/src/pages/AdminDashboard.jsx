@@ -20,6 +20,7 @@ import {
   getAdminRequests,
   approveAdminRequest,
   rejectAdminRequest,
+  deleteAdminRequest,
   API_ROOT,
 } from '../services/api.js';
 import EyeSymbol from '../components/common/EyeSymbol.jsx';
@@ -105,6 +106,20 @@ export default function AdminDashboard() {
       loadDashboardData();
     } catch (err) {
       notify?.(err.message || 'Failed to reject request', 'error');
+    }
+  };
+
+  // Handle registration request permanent deletion
+  const handleDeleteRequest = async (id, name) => {
+    if (!window.confirm(`Permanently remove registration request for ${name}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await deleteAdminRequest(id);
+      notify?.(res?.message || `Removed request for ${name}.`, 'info');
+      loadDashboardData();
+    } catch (err) {
+      notify?.(err.message || 'Failed to remove request', 'error');
     }
   };
 
@@ -754,17 +769,32 @@ export default function AdminDashboard() {
                               </span>
                             )}
                             {isRejected && (
-                              <button
-                                type="button"
-                                onClick={() => handleApproveRequest(reqItem._id, reqItem.name, reqItem.role)}
-                                className="btn btn-sm btn-outline"
-                                style={{
-                                  fontSize: '11px',
-                                  padding: '4px 8px',
-                                }}
-                              >
-                                Re-approve
-                              </button>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveRequest(reqItem._id, reqItem.name, reqItem.role)}
+                                  className="btn btn-sm btn-outline"
+                                  style={{
+                                    fontSize: '11px',
+                                    padding: '4px 8px',
+                                  }}
+                                >
+                                  Re-approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRequest(reqItem._id, reqItem.name)}
+                                  className="btn btn-sm btn-outline"
+                                  style={{
+                                    fontSize: '11px',
+                                    padding: '4px 8px',
+                                    borderColor: '#EF4444',
+                                    color: '#EF4444',
+                                  }}
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
                             )}
                           </div>
                         </td>
