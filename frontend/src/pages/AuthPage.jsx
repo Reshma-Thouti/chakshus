@@ -60,14 +60,26 @@ export default function AuthPage() {
       .then((res) => {
         const list = res?.doctors || [];
         setDoctors(list);
-        if (list.length > 0) setSelectedDoctorId(list[0]._id);
+        if (list.length > 0) {
+          const firstId = String(list[0]._id || list[0].id);
+          setSelectedDoctorId((prev) => (prev ? prev : firstId));
+        }
       })
       .catch((err) => console.warn('Could not load doctors list:', err.message));
   };
 
   useEffect(() => {
     loadDoctors();
-  }, []);
+  }, [portal, mode]);
+
+  useEffect(() => {
+    if (doctors.length > 0) {
+      const match = doctors.find((d) => String(d._id || d.id) === String(selectedDoctorId));
+      if (!match) {
+        setSelectedDoctorId(String(doctors[0]._id || doctors[0].id));
+      }
+    }
+  }, [doctors, selectedDoctorId]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -128,7 +140,10 @@ export default function AuthPage() {
           }
         } else {
           // Patient registration requires doctor allotment
-          if (!selectedDoctorId) {
+          const effectiveDoctorId =
+            selectedDoctorId || (doctors.length > 0 ? String(doctors[0]._id || doctors[0].id) : '');
+
+          if (!effectiveDoctorId) {
             setErrorMsg('No attending ophthalmologist selected. An approved attending doctor must be in the system first.');
             setLoading(false);
             return;
@@ -138,7 +153,7 @@ export default function AuthPage() {
             email,
             password,
             role: 'patient',
-            assignedDoctorId: selectedDoctorId,
+            assignedDoctorId: effectiveDoctorId,
             dateOfBirth,
             gender,
             phone,
@@ -506,19 +521,22 @@ export default function AuthPage() {
                 <select
                   className="input select"
                   required
-                  value={selectedDoctorId}
+                  value={selectedDoctorId || (doctors.length > 0 ? String(doctors[0]._id || doctors[0].id) : '')}
                   onChange={(e) => setSelectedDoctorId(e.target.value)}
                   disabled={doctors.length === 0}
                   style={{ fontWeight: 600 }}
                 >
                   {doctors.length === 0 ? (
-                    <option value="">No registered doctors found in the system</option>
+                    <option value="">No approved doctors found in the system</option>
                   ) : (
-                    doctors.map((doc) => (
-                      <option key={doc._id} value={doc._id}>
-                        {doc.name} — {doc.specialization || 'Ophthalmologist'} ({doc.hospitalOrClinic || 'Clinic'})
-                      </option>
-                    ))
+                    doctors.map((doc) => {
+                      const idVal = String(doc._id || doc.id);
+                      return (
+                        <option key={idVal} value={idVal}>
+                          {doc.name} — {doc.specialization || 'Ophthalmologist'} ({doc.hospitalOrClinic || 'Clinic'})
+                        </option>
+                      );
+                    })
                   )}
                 </select>
                 <span className="text-xs text-muted" style={{ display: 'block', marginTop: '6px' }}>
