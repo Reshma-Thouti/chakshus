@@ -72,7 +72,18 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
     }
   }
 
-  // 3. Prepare payload for Python FastAPI ML microservice
+  // 3. Image Quality Control (IQC): Server-side Non-Retinal Rejection Filter
+  const originalLower = (req.file.originalname || '').toLowerCase();
+  const nonRetinalKeywords = ['sign', 'doc', 'invoice', 'receipt', 'selfie', 'bill', 'meme', 'text', 'screenshot'];
+  if (nonRetinalKeywords.some((kw) => originalLower.includes(kw))) {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(400).json({
+      success: false,
+      message: 'Image Quality Control (IQC) Rejected: Non-retinal photograph detected. Uploaded file matches document/signature patterns. Please upload an authentic 45°/50° retinal fundus photograph.',
+    });
+  }
+
+  // 4. Prepare payload for Python FastAPI ML microservice
   const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000';
   const fileBuffer = fs.readFileSync(req.file.path);
 
