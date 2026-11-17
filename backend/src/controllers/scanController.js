@@ -44,8 +44,14 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
   }
 
   // Multi-Tenancy Check: Verify patient exists and is allotted to the requesting doctor
-  if (patientId.match(/^[0-9a-fA-F]{24}$/)) {
-    const patientExists = await Patient.findById(patientId);
+  let patientExists = null;
+  if (patientId) {
+    if (patientId.match(/^[0-9a-fA-F]{24}$/)) {
+      patientExists = await Patient.findById(patientId);
+    } else {
+      patientExists = await Patient.findOne({ _id: patientId }).catch(() => null);
+    }
+
     if (!patientExists) {
       if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
       return res.status(404).json({
