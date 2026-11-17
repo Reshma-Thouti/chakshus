@@ -95,14 +95,14 @@ export default function AdminDashboard() {
     }
   };
 
-  // Handle registration request rejection
+  // Handle registration request rejection (permanently deletes data from DB)
   const handleRejectRequest = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to reject the registration request for ${name}?`)) {
+    if (!window.confirm(`Are you sure you want to reject the registration request for ${name}? This will permanently delete their account data from the database.`)) {
       return;
     }
     try {
       const res = await rejectAdminRequest(id);
-      notify?.(res?.message || `Rejected registration request for ${name}.`, 'info');
+      notify?.(res?.message || `Rejected and removed registration request for ${name}.`, 'info');
       loadDashboardData();
     } catch (err) {
       notify?.(err.message || 'Failed to reject request', 'error');

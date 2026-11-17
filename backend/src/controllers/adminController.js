@@ -353,7 +353,7 @@ exports.approveRegistrationRequest = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Reject a pending registration request
+ * @desc    Reject a pending registration request (permanently deletes user data from DB)
  * @route   PUT /api/admin/requests/:id/reject
  * @access  Private (Admin)
  */
@@ -363,19 +363,20 @@ exports.rejectRegistrationRequest = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'User request not found' });
   }
 
-  user.isApproved = false;
-  user.approvalStatus = 'rejected';
-  await user.save();
+  const userName = user.name;
+  const userEmail = user.email;
 
-  // If patient, ensure profile remains inactive
+  // If patient, remove linked patient medical profile
   if (user.patientProfileId) {
-    await Patient.findByIdAndUpdate(user.patientProfileId, { isActive: false });
+    await Patient.findByIdAndDelete(user.patientProfileId);
   }
+
+  // Permanently delete the user account from the database
+  await User.findByIdAndDelete(req.params.id);
 
   res.status(200).json({
     success: true,
-    message: `Registration request for ${user.name} has been rejected.`,
-    user,
+    message: `Registration request for ${userName} (${userEmail}) has been rejected and permanently deleted from the database.`,
   });
 });
 
