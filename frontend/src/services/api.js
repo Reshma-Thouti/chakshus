@@ -6,9 +6,18 @@
 
 import axios from 'axios';
 
+// Determine API base url (uses VITE_API_URL on Vercel/production, /api on local dev)
+const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+  : '/api';
+
+export const API_ROOT = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/$/, '')
+  : '';
+
 // ── Axios Instance ───────────────────────────────────────────
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });

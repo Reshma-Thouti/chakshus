@@ -20,6 +20,7 @@ import {
   uploadFundusScan,
   getHealthLogs,
   createPatient,
+  API_ROOT,
 } from '../services/api.js';
 import ScanUpload from '../components/doctor/ScanUpload.jsx';
 import RiskScoreCard from '../components/doctor/RiskScoreCard.jsx';
@@ -368,7 +369,7 @@ export default function DoctorDashboard() {
                     <div>
                       <RiskScoreCard
                         scan={latestResult}
-                        imageUrl={latestResult?.imagePath ? `/${latestResult.imagePath}` : null}
+                        imageUrl={latestResult?.imagePath ? (latestResult.imagePath.startsWith('http') ? latestResult.imagePath : `${API_ROOT}/${latestResult.imagePath.replace(/^\//, '')}`) : null}
                         patientName={selectedPatient.fullName}
                         onScanUpdated={handleScanUpdated}
                       />

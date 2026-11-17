@@ -17,6 +17,7 @@ import {
   getAdminScans,
   reassignPatientDoctor,
   deleteAdminPatient,
+  API_ROOT,
 } from '../services/api.js';
 import EyeSymbol from '../components/common/EyeSymbol.jsx';
 
@@ -847,7 +848,7 @@ export default function AdminDashboard() {
                         <td style={{ padding: '10px 14px' }}>
                           {s.imagePath ? (
                             <img
-                              src={`/${s.imagePath}`}
+                              src={s.imagePath.startsWith('http') ? s.imagePath : `${API_ROOT}/${s.imagePath.replace(/^\//, '')}`}
                               alt="Fundus"
                               style={{
                                 width: '48px',
@@ -1114,7 +1115,7 @@ export default function AdminDashboard() {
               {selectedScanForInspect.imagePath && (
                 <div style={{ flex: '1 1 240px', textAlign: 'center' }}>
                   <img
-                    src={`/${selectedScanForInspect.imagePath}`}
+                    src={selectedScanForInspect.imagePath.startsWith('http') ? selectedScanForInspect.imagePath : `${API_ROOT}/${selectedScanForInspect.imagePath.replace(/^\//, '')}`}
                     alt="Retinal Fundus"
                     style={{
                       maxWidth: '100%',
