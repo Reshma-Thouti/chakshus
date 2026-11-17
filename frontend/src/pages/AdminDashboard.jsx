@@ -954,11 +954,11 @@ export default function AdminDashboard() {
               Current Doctor: <strong>Dr. {reassignModalPatient.assignedDoctorName}</strong>
             </p>
 
-            <form onSubmit={handleReassignDoctor} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
-              <div>
+            <form onSubmit={handleReassignDoctor} style={{ display: 'flex', flexDirection: 'column', marginTop: 'var(--space-md)' }}>
+              <div className="form-group">
                 <label className="label">Select New Attending Doctor *</label>
                 <select
-                  className="select"
+                  className="input select"
                   value={selectedNewDoctorId}
                   onChange={(e) => setSelectedNewDoctorId(e.target.value)}
                   required

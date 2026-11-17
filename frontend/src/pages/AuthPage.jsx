@@ -423,9 +423,9 @@ export default function AuthPage() {
         )}
 
         {/* ── Auth Form ────────────────────────────────── */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
           {mode === 'register' && (
-            <div>
+            <div className="form-group">
               <label className="label">Full Legal Name *</label>
               <input
                 type="text"
@@ -438,7 +438,7 @@ export default function AuthPage() {
             </div>
           )}
 
-          <div>
+          <div className="form-group">
             <label className="label">Email Address *</label>
             <input
               type="email"
@@ -450,7 +450,7 @@ export default function AuthPage() {
             />
           </div>
 
-          <div>
+          <div className="form-group">
             <label className="label">Password *</label>
             <input
               type="password"
@@ -465,7 +465,7 @@ export default function AuthPage() {
           {/* Doctor Extra Fields on Register */}
           {mode === 'register' && portal === 'doctor' && (
             <>
-              <div>
+              <div className="form-group">
                 <label className="label">Clinical Specialization</label>
                 <input
                   type="text"
@@ -474,7 +474,7 @@ export default function AuthPage() {
                   onChange={(e) => setSpecialization(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="form-group">
                 <label className="label">Hospital / Eye Institute</label>
                 <input
                   type="text"
@@ -489,12 +489,12 @@ export default function AuthPage() {
           {/* Patient Extra Fields on Register */}
           {mode === 'register' && portal === 'patient' && (
             <>
-              <div>
+              <div className="form-group">
                 <label className="label" style={{ color: 'var(--remidio-cyan-hover)', fontWeight: 700 }}>
                   Select Attending Ophthalmologist *
                 </label>
                 <select
-                  className="input"
+                  className="input select"
                   required
                   value={selectedDoctorId}
                   onChange={(e) => setSelectedDoctorId(e.target.value)}
@@ -511,13 +511,13 @@ export default function AuthPage() {
                     ))
                   )}
                 </select>
-                <span className="text-xs text-muted" style={{ display: 'block', marginTop: '4px' }}>
+                <span className="text-xs text-muted" style={{ display: 'block', marginTop: '6px' }}>
                   🔒 Your retinal scans and telemetry will strictly be allotted only to this attending clinician.
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-                <div>
+              <div className="form-row">
+                <div className="form-group">
                   <label className="label">Date of Birth</label>
                   <input
                     type="date"
@@ -526,10 +526,10 @@ export default function AuthPage() {
                     onChange={(e) => setDateOfBirth(e.target.value)}
                   />
                 </div>
-                <div>
+                <div className="form-group">
                   <label className="label">Gender</label>
                   <select
-                    className="input"
+                    className="input select"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                   >
@@ -540,11 +540,11 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-                <div>
+              <div className="form-row">
+                <div className="form-group">
                   <label className="label">Diabetes Type</label>
                   <select
-                    className="input"
+                    className="input select"
                     value={diabetesType}
                     onChange={(e) => setDiabetesType(e.target.value)}
                   >
@@ -553,7 +553,7 @@ export default function AuthPage() {
                     <option value="Gestational">Gestational</option>
                   </select>
                 </div>
-                <div>
+                <div className="form-group">
                   <label className="label">Duration (Years)</label>
                   <input
                     type="number"
@@ -566,8 +566,8 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-                <div>
+              <div className="form-row">
+                <div className="form-group">
                   <label className="label">Baseline HbA1c (%)</label>
                   <input
                     type="number"
@@ -577,7 +577,7 @@ export default function AuthPage() {
                     onChange={(e) => setBaselineHbA1c(e.target.value)}
                   />
                 </div>
-                <div>
+                <div className="form-group">
                   <label className="label">Phone Number</label>
                   <input
                     type="tel"
@@ -589,15 +589,16 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                <input
-                  type="checkbox"
-                  checked={hasHypertension}
-                  onChange={(e) => setHasHypertension(e.target.checked)}
-                  style={{ accentColor: 'var(--remidio-cyan)' }}
-                />
-                <span>Diagnosed with Hypertension (High Blood Pressure)</span>
-              </label>
+              <div className="form-group" style={{ marginTop: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={hasHypertension}
+                    onChange={(e) => setHasHypertension(e.target.checked)}
+                  />
+                  <span>Diagnosed with Hypertension (High Blood Pressure)</span>
+                </label>
+              </div>
             </>
           )}
 

@@ -562,8 +562,8 @@ export default function DoctorDashboard() {
               This patient will be allotted strictly under your clinical care (<strong>Dr. {user?.name}</strong>).
             </p>
 
-            <form onSubmit={handleEnrollPatientSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
+            <form onSubmit={handleEnrollPatientSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="form-group">
                 <label className="label">Full Legal Name *</label>
                 <input
                   type="text"
@@ -575,8 +575,8 @@ export default function DoctorDashboard() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
+              <div className="form-row">
+                <div className="form-group">
                   <label className="label">Date of Birth *</label>
                   <input
                     type="date"
@@ -586,10 +586,10 @@ export default function DoctorDashboard() {
                     onChange={(e) => setEnrollForm({ ...enrollForm, dateOfBirth: e.target.value })}
                   />
                 </div>
-                <div>
+                <div className="form-group">
                   <label className="label">Gender</label>
                   <select
-                    className="input"
+                    className="input select"
                     value={enrollForm.gender}
                     onChange={(e) => setEnrollForm({ ...enrollForm, gender: e.target.value })}
                   >
@@ -600,8 +600,8 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
+              <div className="form-row">
+                <div className="form-group">
                   <label className="label">Email Address (Optional)</label>
                   <input
                     type="email"
@@ -611,7 +611,7 @@ export default function DoctorDashboard() {
                     onChange={(e) => setEnrollForm({ ...enrollForm, email: e.target.value })}
                   />
                 </div>
-                <div>
+                <div className="form-group">
                   <label className="label">Phone Number</label>
                   <input
                     type="tel"
@@ -623,11 +623,11 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
+              <div className="form-row">
+                <div className="form-group">
                   <label className="label">Diabetes Type</label>
                   <select
-                    className="input"
+                    className="input select"
                     value={enrollForm.diabetesType}
                     onChange={(e) => setEnrollForm({ ...enrollForm, diabetesType: e.target.value })}
                   >
@@ -636,7 +636,7 @@ export default function DoctorDashboard() {
                     <option value="Gestational">Gestational</option>
                   </select>
                 </div>
-                <div>
+                <div className="form-group">
                   <label className="label">Duration (Years)</label>
                   <input
                     type="number"
@@ -649,7 +649,7 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              <div>
+              <div className="form-group">
                 <label className="label">Baseline HbA1c (%)</label>
                 <input
                   type="number"
@@ -660,17 +660,18 @@ export default function DoctorDashboard() {
                 />
               </div>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                <input
-                  type="checkbox"
-                  checked={enrollForm.hasHypertension}
-                  onChange={(e) => setEnrollForm({ ...enrollForm, hasHypertension: e.target.checked })}
-                  style={{ accentColor: 'var(--remidio-cyan)' }}
-                />
-                <span>Patient has Hypertension (High Blood Pressure)</span>
-              </label>
+              <div className="form-group" style={{ marginTop: '2px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={enrollForm.hasHypertension}
+                    onChange={(e) => setEnrollForm({ ...enrollForm, hasHypertension: e.target.checked })}
+                  />
+                  <span>Patient has Hypertension (High Blood Pressure)</span>
+                </label>
+              </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: 'var(--space-sm)' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: 'var(--space-md)' }}>
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
