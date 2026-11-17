@@ -110,8 +110,19 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // 3. Patient Registration (Requires Administrator Approval)
-  if (!assignedDoctorId) {
+  // 3. Patient Registration
+  // Check if a doctor has already enrolled this patient by email
+  let existingPatientRecord = await Patient.findOne({ email: email.toLowerCase() });
+
+  let targetDoctorId = assignedDoctorId;
+  let isAutoApproved = false;
+
+  if (existingPatientRecord && existingPatientRecord.assignedDoctorId) {
+    targetDoctorId = existingPatientRecord.assignedDoctorId;
+    isAutoApproved = true; // Clinician already verified and admitted patient
+  }
+
+  if (!targetDoctorId) {
     return res.status(400).json({
       success: false,
       message: 'Please select an assigned doctor for patient enrollment.',
@@ -119,7 +130,7 @@ exports.register = asyncHandler(async (req, res) => {
   }
 
   // Verify doctor exists and is approved
-  const doctorExists = await User.findOne({ _id: assignedDoctorId, role: 'doctor', isApproved: true });
+  const doctorExists = await User.findOne({ _id: targetDoctorId, role: 'doctor', isApproved: true });
   if (!doctorExists) {
     return res.status(404).json({
       success: false,
@@ -127,36 +138,63 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // Create User account for Patient (Pending Admin Approval)
+  // Create User account for Patient
   const patientUser = await User.create({
-    name,
+    name: name || (existingPatientRecord ? existingPatientRecord.fullName : 'Patient'),
     email: email.toLowerCase(),
     password,
     role: 'patient',
     assignedDoctorId: doctorExists._id,
-    isApproved: false,
-    approvalStatus: 'pending',
-    requestNote: req.body.requestNote || 'Requested enrollment into Vision Health Portal',
+    isApproved: isAutoApproved,
+    approvalStatus: isAutoApproved ? 'approved' : 'pending',
+    requestNote: isAutoApproved
+      ? `Account activated for patient previously enrolled by Dr. ${doctorExists.name}`
+      : req.body.requestNote || 'Requested enrollment into Vision Health Portal',
   });
 
-  // Automatically create medical profile record (marked inactive until approved)
-  const patientRecord = await Patient.create({
-    fullName: name,
-    dateOfBirth: dateOfBirth || new Date('1975-01-01'),
-    gender: gender || 'Other',
-    email: email.toLowerCase(),
-    phone: phone || '',
-    diabetesType: diabetesType || 'Type 2',
-    diabetesDurationYears: diabetesDurationYears ? Number(diabetesDurationYears) : 5,
-    baselineHbA1c: baselineHbA1c ? Number(baselineHbA1c) : 7.0,
-    hasHypertension: Boolean(hasHypertension),
-    assignedDoctorId: String(doctorExists._id),
-    isActive: false, // Inactive until approved
-  });
+  // Link or create medical profile record
+  if (existingPatientRecord) {
+    existingPatientRecord.isActive = true;
+    await existingPatientRecord.save();
+  } else {
+    existingPatientRecord = await Patient.create({
+      fullName: name,
+      dateOfBirth: dateOfBirth || new Date('1975-01-01'),
+      gender: gender || 'Other',
+      email: email.toLowerCase(),
+      phone: phone || '',
+      diabetesType: diabetesType || 'Type 2',
+      diabetesDurationYears: diabetesDurationYears ? Number(diabetesDurationYears) : 5,
+      baselineHbA1c: baselineHbA1c ? Number(baselineHbA1c) : 7.0,
+      hasHypertension: Boolean(hasHypertension),
+      assignedDoctorId: String(doctorExists._id),
+      isActive: false, // Inactive until approved
+    });
+  }
 
   // Link profile to user
-  patientUser.patientProfileId = patientRecord._id;
+  patientUser.patientProfileId = existingPatientRecord._id;
   await patientUser.save();
+
+  if (isAutoApproved) {
+    const token = patientUser.generateAuthToken();
+    return res.status(201).json({
+      success: true,
+      message: `Welcome! Your clinical portal has been activated and linked to Dr. ${doctorExists.name}'s care roster.`,
+      token,
+      user: {
+        id: patientUser._id,
+        name: patientUser.name,
+        email: patientUser.email,
+        role: patientUser.role,
+        assignedDoctorId: doctorExists._id,
+        assignedDoctorName: doctorExists.name,
+        patientProfileId: existingPatientRecord._id,
+        isApproved: true,
+        approvalStatus: 'approved',
+      },
+    });
+  }
 
   res.status(201).json({
     success: true,
@@ -169,7 +207,7 @@ exports.register = asyncHandler(async (req, res) => {
       role: patientUser.role,
       assignedDoctorId: doctorExists._id,
       assignedDoctorName: doctorExists.name,
-      patientProfileId: patientRecord._id,
+      patientProfileId: existingPatientRecord._id,
       isApproved: false,
       approvalStatus: 'pending',
     },

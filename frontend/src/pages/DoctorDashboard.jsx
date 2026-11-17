@@ -55,6 +55,8 @@ export default function DoctorDashboard() {
     diabetesDurationYears: '5',
     baselineHbA1c: '7.5',
     hasHypertension: false,
+    createPortalAccount: true,
+    portalPassword: 'Patient@123',
   });
 
   const loadPatients = useCallback(async () => {
@@ -159,7 +161,11 @@ export default function DoctorDashboard() {
       });
 
       const newPatient = res?.patient || res;
-      notify('success', `Patient "${newPatient.fullName}" enrolled and added to your roster.`);
+      if (res?.portalCreated) {
+        notify('success', `Patient "${newPatient.fullName}" enrolled! Portal login created: ${res.portalEmail} (Password: ${res.portalPassword})`);
+      } else {
+        notify('success', `Patient "${newPatient.fullName}" enrolled and added to your roster.`);
+      }
       setShowEnrollModal(false);
 
       // Refresh patient list and auto-select new patient
@@ -177,6 +183,8 @@ export default function DoctorDashboard() {
         diabetesDurationYears: '5',
         baselineHbA1c: '7.5',
         hasHypertension: false,
+        createPortalAccount: true,
+        portalPassword: 'Patient@123',
       });
     } catch (err) {
       notify('error', `Failed to enroll patient: ${err.message}`);
@@ -669,6 +677,46 @@ export default function DoctorDashboard() {
                   />
                   <span>Patient has Hypertension (High Blood Pressure)</span>
                 </label>
+              </div>
+
+              {/* Patient Portal Login Provisioning */}
+              <div style={{
+                background: '#F0FDFA',
+                border: '1px solid #CCFBF1',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 14px',
+                marginTop: 'var(--space-sm)',
+                marginBottom: 'var(--space-md)',
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, color: '#0F766E' }}>
+                  <input
+                    type="checkbox"
+                    checked={enrollForm.createPortalAccount}
+                    onChange={(e) => setEnrollForm({ ...enrollForm, createPortalAccount: e.target.checked })}
+                  />
+                  <span>🔑 Provision Patient Portal Login Instantly</span>
+                </label>
+
+                {enrollForm.createPortalAccount && (
+                  <div style={{ marginTop: '10px' }}>
+                    <div className="form-group" style={{ marginBottom: '6px' }}>
+                      <label className="label" style={{ fontSize: '12px', color: '#134E4A' }}>Initial Portal Password</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g. Patient@123"
+                        value={enrollForm.portalPassword}
+                        onChange={(e) => setEnrollForm({ ...enrollForm, portalPassword: e.target.value })}
+                        disabled={!enrollForm.email}
+                      />
+                    </div>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#0D9488' }}>
+                      {enrollForm.email
+                        ? `Patient can log in directly at Patient Sign In using their email (${enrollForm.email}) and this password.`
+                        : '⚠️ Please enter an Email Address in the field above to enable portal login.'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: 'var(--space-md)' }}>

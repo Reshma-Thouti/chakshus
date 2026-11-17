@@ -7,6 +7,7 @@
  *  - Patients can only view their own profile.
  */
 
+const User = require('../models/User');
 const Patient = require('../models/Patient');
 const asyncHandler = require('../middleware/errorHandler');
 
@@ -27,6 +28,8 @@ exports.createPatient = asyncHandler(async (req, res) => {
     baselineHbA1c,
     hasHypertension,
     hasKidneyDisease,
+    createPortalAccount,
+    portalPassword,
   } = req.body;
 
   // Determine assigned doctor ID (from authenticated user or explicitly passed in dev)
@@ -44,12 +47,40 @@ exports.createPatient = asyncHandler(async (req, res) => {
     hasHypertension: Boolean(hasHypertension),
     hasKidneyDisease: Boolean(hasKidneyDisease),
     assignedDoctorId: doctorId,
+    isActive: true,
   });
+
+  // Automatically create Patient Portal Login if email is provided
+  let portalCreated = false;
+  let activePassword = '';
+  if (email && (createPortalAccount || portalPassword)) {
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (!existingUser) {
+      activePassword = portalPassword && portalPassword.trim() ? portalPassword.trim() : 'Patient@123';
+      const patientUser = await User.create({
+        name: fullName,
+        email: email.toLowerCase(),
+        password: activePassword,
+        role: 'patient',
+        assignedDoctorId: doctorId,
+        patientProfileId: patient._id,
+        isApproved: true,
+        approvalStatus: 'approved',
+        requestNote: 'Directly enrolled and provisioned by attending clinician',
+      });
+      portalCreated = true;
+    }
+  }
 
   res.status(201).json({
     success: true,
-    message: 'Patient successfully enrolled and added to your roster.',
+    message: portalCreated
+      ? `Patient successfully enrolled and Patient Portal login provisioned (${email}).`
+      : 'Patient successfully enrolled and added to your roster.',
     patient,
+    portalCreated,
+    portalEmail: email ? email.toLowerCase() : null,
+    portalPassword: portalCreated ? activePassword : null,
   });
 });
 
