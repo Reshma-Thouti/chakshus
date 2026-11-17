@@ -16,15 +16,18 @@ const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 'image/bmp'];
 
 /**
- * Image Quality Control (IQC) & Out-of-Distribution (OOD) Validator.
- * Analyzes chromaticity, luminance, and background profile to verify
- * that the uploaded file is an authentic retinal fundus photograph
- * and not a signature, document, selfie, or random image.
+ * Multi-Factor Image Quality Control (IQC) & Retinal OOD Validator.
+ * Combines:
+ *  1. White document/signature background detection
+ *  2. Non-ocular color spectrum filtering (rejects blue skies, green nature, clothing)
+ *  3. Grayscale/black-and-white detection
+ *  4. Fundus camera circular optical aperture (dark masked corners)
+ *  5. Retinal hemoglobin vascular chromaticity (Red-to-Blue ratio in illuminated tissue)
  */
 const analyzeRetinalChromaticity = (file) => {
   return new Promise((resolve) => {
     const lowerName = file.name.toLowerCase();
-    const nonRetinalKeywords = ['sign', 'doc', 'invoice', 'receipt', 'selfie', 'bill', 'meme', 'text', 'screenshot'];
+    const nonRetinalKeywords = ['sign', 'doc', 'invoice', 'receipt', 'selfie', 'bill', 'meme', 'text', 'screenshot', 'paper'];
     if (nonRetinalKeywords.some((kw) => lowerName.includes(kw))) {
       return resolve({
         isValid: false,
@@ -39,64 +42,151 @@ const analyzeRetinalChromaticity = (file) => {
       URL.revokeObjectURL(objectUrl);
       try {
         const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
+        const S = 64;
+        canvas.width = S;
+        canvas.height = S;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, 64, 64);
-        const imgData = ctx.getImageData(0, 0, 64, 64).data;
+        ctx.drawImage(img, 0, 0, S, S);
+        const imgData = ctx.getImageData(0, 0, S, S).data;
 
-        let totalR = 0;
-        let totalG = 0;
-        let totalB = 0;
-        let whitePixels = 0;
-        const totalPixels = 64 * 64;
+        let whiteCount = 0;
+        let blueCount = 0;
+        let greenCount = 0;
+        let grayCount = 0;
+
+        let totalIllR = 0;
+        let totalIllG = 0;
+        let totalIllB = 0;
+        let illCount = 0;
+
+        const totalPixels = S * S;
 
         for (let i = 0; i < imgData.length; i += 4) {
           const r = imgData[i];
           const g = imgData[i + 1];
           const b = imgData[i + 2];
-          totalR += r;
-          totalG += g;
-          totalB += b;
+          const brightness = (r + g + b) / 3;
 
-          // Detect white or light paper background (signatures, scanned forms, receipts)
-          if (r > 195 && g > 195 && b > 195) {
-            whitePixels++;
+          // 1. High white document / paper pixels
+          if (r > 190 && g > 190 && b > 190) {
+            whiteCount++;
+          }
+
+          // 2. Non-ocular color spectrum: blue / cyan dominant
+          if (b > r + 15 && b > 50) {
+            blueCount++;
+          }
+
+          // Non-ocular color spectrum: pure green dominant
+          if (g > r * 1.15 && g > 60) {
+            greenCount++;
+          }
+
+          // 3. Grayscale pixels
+          if (Math.abs(r - g) < 12 && Math.abs(g - b) < 12 && brightness > 40) {
+            grayCount++;
+          }
+
+          // Illuminated tissue pixels
+          if (brightness > 25) {
+            totalIllR += r;
+            totalIllG += g;
+            totalIllB += b;
+            illCount++;
           }
         }
 
-        const avgR = totalR / totalPixels;
-        const avgG = totalG / totalPixels;
-        const avgB = totalB / totalPixels;
-        const whiteRatio = whitePixels / totalPixels;
-
-        // 1. Signature / Document check: high white background ratio
-        if (whiteRatio > 0.35) {
+        // Rule 1: Document / paper background check (> 25% near-white)
+        const whiteRatio = whiteCount / totalPixels;
+        if (whiteRatio > 0.25) {
           return resolve({
             isValid: false,
-            reason: 'White paper / document background detected. Chakshus AI strictly accepts posterior-pole or macula-centered retinal fundus scans.',
+            reason: 'Document / paper background detected (white ratio: ' + Math.round(whiteRatio * 100) + '%). Chakshus requires an authentic fundus scan.',
           });
         }
 
-        // 2. Fundus Chromaticity check: Retinal images have deep red/orange vascular tones
-        if (avgR < avgB * 1.15 || avgR < 30) {
+        // Rule 2: Blue / cyan elements (skies, blue clothes, signs, objects)
+        const blueRatio = blueCount / totalPixels;
+        if (blueRatio > 0.04) {
           return resolve({
             isValid: false,
-            reason: 'Lacks characteristic retinal fundus chromaticity (deep red/orange vascular tones). Please upload an authentic non-mydriatic fundus photograph.',
+            reason: 'Non-retinal color elements: Blue/cyan tones detected. Retinal fundus scans do not exhibit blue illumination.',
           });
         }
 
-        // 3. Grayscale check
-        if (Math.abs(avgR - avgG) < 8 && Math.abs(avgG - avgB) < 8 && avgR > 50) {
+        // Rule 3: Green foliage / objects (plants, green cloth, nature)
+        const greenRatio = greenCount / totalPixels;
+        if (greenRatio > 0.04) {
           return resolve({
             isValid: false,
-            reason: 'Grayscale image detected. Non-mydriatic diabetic retinopathy screening requires true-color optical fundus imaging.',
+            reason: 'Non-retinal color elements: Significant green tones detected. Retinal tissue is dominated by vascular amber/red.',
           });
+        }
+
+        // Rule 4: Grayscale / Black-and-white check (> 40% gray)
+        const grayRatio = grayCount / totalPixels;
+        if (grayRatio > 0.40) {
+          return resolve({
+            isValid: false,
+            reason: 'Black-and-white or grayscale photograph detected. Color optical fundus imaging is required for microvascular grading.',
+          });
+        }
+
+        // Rule 5: Corner Aperture Mask Check (Fundus lens circular frame)
+        // Sample 5x5 pixel patches in the 4 corners of the 64x64 canvas
+        const getPatchBrightness = (startX, startY) => {
+          let sum = 0;
+          for (let y = startY; y < startY + 5; y++) {
+            for (let x = startX; x < startX + 5; x++) {
+              const idx = (y * S + x) * 4;
+              sum += (imgData[idx] + imgData[idx + 1] + imgData[idx + 2]) / 3;
+            }
+          }
+          return sum / 25;
+        };
+
+        const tl = getPatchBrightness(0, 0);
+        const tr = getPatchBrightness(S - 5, 0);
+        const bl = getPatchBrightness(0, S - 5);
+        const br = getPatchBrightness(S - 5, S - 5);
+        const corners = [tl, tr, bl, br];
+        const darkCorners = corners.filter((b) => b < 45).length;
+
+        // Rule 6: Retinal Vascular Chromaticity (Red-to-Blue ratio)
+        if (illCount < 100) {
+          return resolve({
+            isValid: false,
+            reason: 'Image is completely dark or under-illuminated. Cannot resolve retinal features.',
+          });
+        }
+
+        const meanR = totalIllR / illCount;
+        const meanG = totalIllG / illCount;
+        const meanB = totalIllB / illCount;
+        const rbRatio = meanR / (meanB + 0.001);
+
+        // Circular aperture fundus cameras (like Remidio, Zeiss, Topcon) produce dark outer corners
+        if (darkCorners >= 2) {
+          // Has fundus lens aperture, check that interior is retina (rbRatio >= 1.7)
+          if (rbRatio < 1.7) {
+            return resolve({
+              isValid: false,
+              reason: 'Circular lens frame detected, but internal optical profile lacks retinal vascular chromaticity (R/B ratio too low).',
+            });
+          }
+        } else {
+          // No dark circular frame present: ordinary rectangular photo (e.g. selfie, room, pet, car, everyday object)
+          // Tightly cropped fundus must have extreme red dominance (rbRatio >= 2.0 and low blue)
+          if (rbRatio < 2.0 || meanR < 65 || meanB > 65) {
+            return resolve({
+              isValid: false,
+              reason: 'No fundus camera circular aperture mask detected, and color spectrum does not match human retinal vasculature (e.g. selfie, room, or everyday object).',
+            });
+          }
         }
 
         resolve({ isValid: true, reason: null });
       } catch (err) {
-        // Fallback open if canvas context is restricted
         resolve({ isValid: true, reason: null });
       }
     };
