@@ -111,7 +111,7 @@ export default function AuthPage() {
           setSuccessMsg('Administrator account registered successfully!');
           navigate('/admin');
         } else if (portal === 'doctor') {
-          await register({
+          const res = await register({
             name,
             email,
             password,
@@ -119,12 +119,17 @@ export default function AuthPage() {
             specialization,
             hospitalOrClinic,
           });
-          setSuccessMsg('Doctor account created successfully!');
-          navigate('/doctor');
+          if (res?.isPendingApproval) {
+            setSuccessMsg(res.message || 'Registration request submitted to Administrator! Awaiting Admin review.');
+            setMode('login');
+          } else {
+            setSuccessMsg('Doctor account created successfully!');
+            navigate('/doctor');
+          }
         } else {
           // Patient registration requires doctor allotment
           if (!selectedDoctorId) {
-            setErrorMsg('No attending ophthalmologist selected. An attending doctor must register first.');
+            setErrorMsg('No attending ophthalmologist selected. An approved attending doctor must be in the system first.');
             setLoading(false);
             return;
           }
@@ -142,8 +147,13 @@ export default function AuthPage() {
             baselineHbA1c: Number(baselineHbA1c),
             hasHypertension,
           });
-          setSuccessMsg('Patient account registered and allotted to doctor!');
-          navigate(`/patient/${res.user.patientProfileId || res.user.id}`);
+          if (res?.isPendingApproval) {
+            setSuccessMsg(res.message || 'Patient registration request submitted to Administrator! Awaiting Admin review.');
+            setMode('login');
+          } else {
+            setSuccessMsg('Patient account registered and allotted to doctor!');
+            navigate(`/patient/${res.user.patientProfileId || res.user.id}`);
+          }
         }
       }
     } catch (err) {
@@ -616,7 +626,13 @@ export default function AuthPage() {
               fontWeight: 700,
             }}
           >
-            {loading ? 'Authenticating...' : mode === 'login' ? `Sign In to ${portal === 'doctor' ? 'Doctor Portal' : portal === 'admin' ? 'Admin Console' : 'Patient Portal'}` : `Create ${portal === 'doctor' ? 'Doctor' : portal === 'admin' ? 'Administrator' : 'Patient'} Account`}
+            {loading
+              ? 'Processing...'
+              : mode === 'login'
+              ? `Sign In to ${portal === 'doctor' ? 'Doctor Portal' : portal === 'admin' ? 'Admin Console' : 'Patient Portal'}`
+              : portal === 'admin'
+              ? 'Initialize Administrator Account'
+              : `Submit ${portal === 'doctor' ? 'Doctor' : 'Patient'} Access Request to Admin`}
           </button>
         </form>
 
@@ -624,13 +640,13 @@ export default function AuthPage() {
         <div style={{ textAlign: 'center', marginTop: 'var(--space-lg)', paddingTop: 'var(--space-md)', borderTop: '1px solid var(--color-border)', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
           {mode === 'login' ? (
             <span>
-              Don't have an account yet?{' '}
+              Don't have an approved account yet?{' '}
               <button
                 type="button"
                 onClick={() => { setMode('register'); setErrorMsg(''); loadDoctors(); }}
                 style={{ background: 'none', border: 'none', color: 'var(--remidio-cyan-hover)', fontWeight: 700, cursor: 'pointer', padding: 0 }}
               >
-                Register your {portal === 'doctor' ? 'Doctor' : portal === 'admin' ? 'Administrator' : 'Patient'} account first &rarr;
+                Request {portal === 'doctor' ? 'Doctor' : portal === 'admin' ? 'Administrator' : 'Patient'} access &rarr;
               </button>
             </span>
           ) : (

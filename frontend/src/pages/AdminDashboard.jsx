@@ -17,6 +17,9 @@ import {
   getAdminScans,
   reassignPatientDoctor,
   deleteAdminPatient,
+  getAdminRequests,
+  approveAdminRequest,
+  rejectAdminRequest,
   API_ROOT,
 } from '../services/api.js';
 import EyeSymbol from '../components/common/EyeSymbol.jsx';
@@ -26,7 +29,7 @@ export default function AdminDashboard() {
   const { notify } = useAppContext();
   const navigate = useNavigate();
 
-  // Navigation tab: 'overview' | 'doctors' | 'patients' | 'scans'
+  // Navigation tab: 'overview' | 'requests' | 'doctors' | 'patients' | 'scans'
   const [activeTab, setActiveTab] = useState('overview');
 
   // Data states
@@ -35,12 +38,14 @@ export default function AdminDashboard() {
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
   const [scans, setScans] = useState([]);
+  const [requests, setRequests] = useState([]);
 
   // Search & Filter states
   const [doctorSearch, setDoctorSearch] = useState('');
   const [patientSearch, setPatientSearch] = useState('');
   const [patientDoctorFilter, setPatientDoctorFilter] = useState('ALL');
   const [scanGradeFilter, setScanGradeFilter] = useState('ALL');
+  const [requestStatusFilter, setRequestStatusFilter] = useState('ALL');
 
   // Modals
   const [selectedPatientForInspect, setSelectedPatientForInspect] = useState(null);
@@ -53,17 +58,19 @@ export default function AdminDashboard() {
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const [overviewRes, doctorsRes, patientsRes, scansRes] = await Promise.all([
+      const [overviewRes, doctorsRes, patientsRes, scansRes, requestsRes] = await Promise.all([
         getAdminOverview(),
         getAdminDoctors(),
         getAdminPatients(),
         getAdminScans(),
+        getAdminRequests(),
       ]);
 
       setOverviewData(overviewRes?.data || null);
       setDoctors(doctorsRes?.doctors || []);
       setPatients(patientsRes?.patients || []);
       setScans(scansRes?.scans || []);
+      setRequests(requestsRes?.requests || []);
     } catch (err) {
       console.error('Failed to load admin data:', err);
       notify?.(`Error loading administrative data: ${err.message}`, 'error');
@@ -75,6 +82,31 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Handle registration request approval
+  const handleApproveRequest = async (id, name, role) => {
+    try {
+      const res = await approveAdminRequest(id);
+      notify?.(res?.message || `Approved ${role} account for ${name}!`, 'success');
+      loadDashboardData();
+    } catch (err) {
+      notify?.(err.message || 'Failed to approve request', 'error');
+    }
+  };
+
+  // Handle registration request rejection
+  const handleRejectRequest = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to reject the registration request for ${name}?`)) {
+      return;
+    }
+    try {
+      const res = await rejectAdminRequest(id);
+      notify?.(res?.message || `Rejected registration request for ${name}.`, 'info');
+      loadDashboardData();
+    } catch (err) {
+      notify?.(err.message || 'Failed to reject request', 'error');
+    }
+  };
 
   // Handle patient reassignment
   const handleReassignDoctor = async (e) => {
@@ -134,6 +166,14 @@ export default function AdminDashboard() {
       return String(s.drGrade) === String(scanGradeFilter);
     });
   }, [scans, scanGradeFilter]);
+
+  // Filtered Registration Requests
+  const filteredRequests = useMemo(() => {
+    return requests.filter((r) => {
+      if (requestStatusFilter === 'ALL') return true;
+      return r.approvalStatus === requestStatusFilter;
+    });
+  }, [requests, requestStatusFilter]);
 
   const getGradeBadge = (grade) => {
     switch (Number(grade)) {
@@ -294,6 +334,30 @@ export default function AdminDashboard() {
         </div>
 
         <div
+          onClick={() => setActiveTab('requests')}
+          className="card"
+          style={{
+            padding: 'var(--space-lg)',
+            cursor: 'pointer',
+            borderLeft: '4px solid #10B981',
+            background: requests.filter((r) => r.approvalStatus === 'pending').length > 0 ? '#ECFDF5' : undefined,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <div style={{ fontSize: '12px', fontWeight: 700, color: requests.filter((r) => r.approvalStatus === 'pending').length > 0 ? '#065F46' : 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+            Access Requests
+          </div>
+          <div style={{ fontSize: '32px', fontWeight: 800, color: '#059669', marginTop: '4px' }}>
+            {loading ? '...' : (overviewData?.metrics?.pendingRequestsCount ?? requests.filter((r) => r.approvalStatus === 'pending').length)}
+          </div>
+          <div style={{ fontSize: '11px', color: '#047857', fontWeight: 700, marginTop: '4px' }}>
+            {requests.filter((r) => r.approvalStatus === 'pending').length > 0
+              ? `Review ${requests.filter((r) => r.approvalStatus === 'pending').length} Pending Approvals →`
+              : 'Review Doctor & Patient Signups →'}
+          </div>
+        </div>
+
+        <div
           onClick={() => { setActiveTab('scans'); setScanGradeFilter('URGENT'); }}
           className="card"
           style={{
@@ -326,6 +390,7 @@ export default function AdminDashboard() {
       }}>
         {[
           { id: 'overview', label: '📊 System Overview & Analytics' },
+          { id: 'requests', label: `🔔 Access Requests (${requests.filter((r) => r.approvalStatus === 'pending').length} Pending)` },
           { id: 'doctors', label: `👨‍⚕️ Clinicians & Rosters (${doctors.length})` },
           { id: 'patients', label: `👥 Master Patient Registry (${patients.length})` },
           { id: 'scans', label: `🔬 Retinal AI Diagnostics Archive (${scans.length})` },
@@ -518,6 +583,198 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════ */}
+      {/* TAB: REGISTRATION & ACCESS REQUESTS                      */}
+      {/* ════════════════════════════════════════════════════════ */}
+      {activeTab === 'requests' && (
+        <div className="card" style={{ padding: 'var(--space-xl)' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 'var(--space-md)',
+            marginBottom: 'var(--space-lg)',
+          }}>
+            <div>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--remidio-navy)' }}>
+                Clinician & Patient Access Requests
+              </h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                Review and approve registration requests before clinicians or patients can access the platform.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <select
+                className="select"
+                value={requestStatusFilter}
+                onChange={(e) => setRequestStatusFilter(e.target.value)}
+                style={{ width: '220px', fontSize: '13px' }}
+              >
+                <option value="ALL">All Requests ({requests.length})</option>
+                <option value="pending">⏳ Pending Review ({requests.filter((r) => r.approvalStatus === 'pending').length})</option>
+                <option value="approved">✅ Approved ({requests.filter((r) => r.approvalStatus === 'approved').length})</option>
+                <option value="rejected">❌ Rejected ({requests.filter((r) => r.approvalStatus === 'rejected').length})</option>
+              </select>
+            </div>
+          </div>
+
+          {filteredRequests.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--color-text-secondary)' }}>
+              No access requests matching this filter.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-border)', background: '#F8FAFC' }}>
+                    <th style={{ padding: '12px 14px', fontWeight: 800, color: 'var(--remidio-navy)' }}>Applicant Name & Email</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 800, color: 'var(--remidio-navy)' }}>Requested Role</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 800, color: 'var(--remidio-navy)' }}>Professional / Clinical Details</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 800, color: 'var(--remidio-navy)' }}>Submitted Date</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 800, color: 'var(--remidio-navy)' }}>Approval Status</th>
+                    <th style={{ padding: '12px 14px', fontWeight: 800, color: 'var(--remidio-navy)', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRequests.map((reqItem) => {
+                    const isPending = reqItem.approvalStatus === 'pending';
+                    const isApproved = reqItem.approvalStatus === 'approved';
+                    const isRejected = reqItem.approvalStatus === 'rejected';
+
+                    return (
+                      <tr key={reqItem._id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--remidio-navy)' }}>{reqItem.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{reqItem.email}</div>
+                          {reqItem.phone && (
+                            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>📞 {reqItem.phone}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            textTransform: 'uppercase',
+                            background: reqItem.role === 'doctor' ? 'rgba(217, 119, 6, 0.15)' : 'rgba(0, 194, 203, 0.15)',
+                            color: reqItem.role === 'doctor' ? '#B45309' : '#00878E',
+                            border: reqItem.role === 'doctor' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid rgba(0, 194, 203, 0.3)',
+                          }}>
+                            {reqItem.role === 'doctor' ? '👨‍⚕️ Clinician' : '👤 Patient'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          {reqItem.role === 'doctor' ? (
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{reqItem.hospitalOrClinic || 'Hospital Not Provided'}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                                {reqItem.specialization || 'General Ophthalmology'}
+                                {reqItem.medicalLicenseNumber ? ` • Lic: ${reqItem.medicalLicenseNumber}` : ''}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              {reqItem.patientProfileId ? (
+                                <div style={{ fontSize: '12px' }}>
+                                  {reqItem.patientProfileId.gender || 'Patient'} &bull; {reqItem.patientProfileId.diabetesType || 'Type 2 Diabetes'} ({reqItem.patientProfileId.diabetesDurationYears || 0} yrs)
+                                  <div style={{ fontSize: '11px', color: '#D97706', fontWeight: 600 }}>
+                                    HbA1c: {reqItem.patientProfileId.baselineHbA1c || 'N/A'}%
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>Patient profile record</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                          {reqItem.createdAt ? new Date(reqItem.createdAt).toLocaleDateString() : 'Recent'}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            background: isPending ? '#FEF3C7' : isApproved ? '#ECFDF5' : '#FEE2E2',
+                            color: isPending ? '#92400E' : isApproved ? '#065F46' : '#991B1B',
+                            border: `1px solid ${isPending ? '#FDE68A' : isApproved ? '#A7F3D0' : '#FECACA'}`,
+                          }}>
+                            {isPending && '⏳ Pending Review'}
+                            {isApproved && '✅ Approved'}
+                            {isRejected && '❌ Rejected'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            {isPending && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveRequest(reqItem._id, reqItem.name, reqItem.role)}
+                                  className="btn btn-sm"
+                                  style={{
+                                    background: '#10B981',
+                                    color: '#FFFFFF',
+                                    border: 'none',
+                                    fontSize: '11px',
+                                    padding: '5px 10px',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  ✅ Approve Access
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectRequest(reqItem._id, reqItem.name)}
+                                  className="btn btn-sm btn-outline"
+                                  style={{
+                                    borderColor: '#EF4444',
+                                    color: '#EF4444',
+                                    fontSize: '11px',
+                                    padding: '5px 8px',
+                                  }}
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {isApproved && (
+                              <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>
+                                Active in System
+                              </span>
+                            )}
+                            {isRejected && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveRequest(reqItem._id, reqItem.name, reqItem.role)}
+                                className="btn btn-sm btn-outline"
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '4px 8px',
+                                }}
+                              >
+                                Re-approve
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

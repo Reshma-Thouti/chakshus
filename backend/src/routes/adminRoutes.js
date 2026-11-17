@@ -14,6 +14,9 @@ const {
   getAdminScans,
   reassignPatientDoctor,
   deletePatient,
+  getRegistrationRequests,
+  approveRegistrationRequest,
+  rejectRegistrationRequest,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -23,6 +26,11 @@ router.use(authorize('admin'));
 
 // System overview
 router.get('/overview', getAdminOverview);
+
+// Registration requests governance
+router.get('/requests', getRegistrationRequests);
+router.put('/requests/:id/approve', approveRegistrationRequest);
+router.put('/requests/:id/reject', rejectRegistrationRequest);
 
 // Doctor directory & workload
 router.get('/doctors', getAdminDoctors);

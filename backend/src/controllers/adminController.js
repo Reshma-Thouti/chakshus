@@ -25,6 +25,7 @@ exports.getAdminOverview = asyncHandler(async (req, res) => {
   const [
     totalPatients,
     totalDoctors,
+    pendingRequestsCount,
     totalScans,
     totalLogs,
     urgentScansCount,
@@ -38,7 +39,8 @@ exports.getAdminOverview = asyncHandler(async (req, res) => {
     recentDoctors,
   ] = await Promise.all([
     Patient.countDocuments({ isActive: true }),
-    User.countDocuments({ role: 'doctor' }),
+    User.countDocuments({ role: 'doctor', isApproved: true }),
+    User.countDocuments({ approvalStatus: 'pending', role: { $in: ['doctor', 'patient'] } }),
     ClinicalScan.countDocuments({}),
     DailyHealthLog.countDocuments({}),
     ClinicalScan.countDocuments({
@@ -51,7 +53,7 @@ exports.getAdminOverview = asyncHandler(async (req, res) => {
     ClinicalScan.countDocuments({ drGrade: 4 }),
     ClinicalScan.find({}).sort({ createdAt: -1 }).limit(6).lean(),
     Patient.find({ isActive: true }).sort({ createdAt: -1 }).limit(5).lean(),
-    User.find({ role: 'doctor' }).select('-password').sort({ createdAt: -1 }).limit(5).lean(),
+    User.find({ role: 'doctor', isApproved: true }).select('-password').sort({ createdAt: -1 }).limit(5).lean(),
   ]);
 
   // Enrich recent scans with patient details
@@ -75,6 +77,7 @@ exports.getAdminOverview = asyncHandler(async (req, res) => {
       metrics: {
         totalPatients,
         totalDoctors,
+        pendingRequestsCount,
         totalScans,
         totalLogs,
         urgentScansCount,
@@ -99,7 +102,7 @@ exports.getAdminOverview = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 exports.getAdminDoctors = asyncHandler(async (req, res) => {
-  const doctors = await User.find({ role: 'doctor' })
+  const doctors = await User.find({ role: 'doctor', isApproved: true })
     .select('-password')
     .sort({ createdAt: -1 })
     .lean();
@@ -299,5 +302,79 @@ exports.deletePatient = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: `Patient record for ${patient.fullName} has been archived.`,
+  });
+});
+
+/**
+ * @desc    Get all registration access requests (pending, approved, rejected)
+ * @route   GET /api/admin/requests
+ * @access  Private (Admin)
+ */
+exports.getRegistrationRequests = asyncHandler(async (req, res) => {
+  const requests = await User.find({ role: { $in: ['doctor', 'patient'] } })
+    .select('-password')
+    .populate('patientProfileId')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  res.status(200).json({
+    success: true,
+    count: requests.length,
+    requests,
+  });
+});
+
+/**
+ * @desc    Approve a pending doctor or patient registration request
+ * @route   PUT /api/admin/requests/:id/approve
+ * @access  Private (Admin)
+ */
+exports.approveRegistrationRequest = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User request not found' });
+  }
+
+  user.isApproved = true;
+  user.approvalStatus = 'approved';
+  user.approvedAt = new Date();
+  await user.save();
+
+  // If patient, activate their medical profile record
+  if (user.patientProfileId) {
+    await Patient.findByIdAndUpdate(user.patientProfileId, { isActive: true });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Account request for ${user.name} (${user.role}) has been approved! They can now log in.`,
+    user,
+  });
+});
+
+/**
+ * @desc    Reject a pending registration request
+ * @route   PUT /api/admin/requests/:id/reject
+ * @access  Private (Admin)
+ */
+exports.rejectRegistrationRequest = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User request not found' });
+  }
+
+  user.isApproved = false;
+  user.approvalStatus = 'rejected';
+  await user.save();
+
+  // If patient, ensure profile remains inactive
+  if (user.patientProfileId) {
+    await Patient.findByIdAndUpdate(user.patientProfileId, { isActive: false });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Registration request for ${user.name} has been rejected.`,
+    user,
   });
 });

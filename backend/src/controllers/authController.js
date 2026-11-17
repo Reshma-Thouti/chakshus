@@ -42,7 +42,7 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // 2. Doctor Registration
+  // 2. Doctor Registration (Requires Administrator Approval)
   if (role === 'doctor') {
     const doctor = await User.create({
       name,
@@ -51,21 +51,22 @@ exports.register = asyncHandler(async (req, res) => {
       role: 'doctor',
       specialization: specialization || 'Ophthalmologist / Retina Specialist',
       hospitalOrClinic: hospitalOrClinic || 'Tele-Oculomics Center',
+      isApproved: false,
+      approvalStatus: 'pending',
+      requestNote: req.body.requestNote || 'Requested access as Attending Clinician',
     });
-
-    const token = doctor.generateAuthToken();
 
     return res.status(201).json({
       success: true,
-      message: 'Doctor account registered successfully.',
-      token,
+      isPendingApproval: true,
+      message: 'Registration request submitted to Administrator. Your account is pending review. Once approved by the Admin, you will be able to log in to the Doctor Workstation.',
       user: {
         id: doctor._id,
         name: doctor.name,
         email: doctor.email,
         role: doctor.role,
-        specialization: doctor.specialization,
-        hospitalOrClinic: doctor.hospitalOrClinic,
+        isApproved: false,
+        approvalStatus: 'pending',
       },
     });
   }
@@ -109,7 +110,7 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // 3. Patient Registration
+  // 3. Patient Registration (Requires Administrator Approval)
   if (!assignedDoctorId) {
     return res.status(400).json({
       success: false,
@@ -117,25 +118,28 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // Verify doctor exists
-  const doctorExists = await User.findOne({ _id: assignedDoctorId, role: 'doctor' });
+  // Verify doctor exists and is approved
+  const doctorExists = await User.findOne({ _id: assignedDoctorId, role: 'doctor', isApproved: true });
   if (!doctorExists) {
     return res.status(404).json({
       success: false,
-      message: 'The selected doctor was not found in the system.',
+      message: 'The selected doctor was not found or is awaiting approval.',
     });
   }
 
-  // Create User account for Patient
+  // Create User account for Patient (Pending Admin Approval)
   const patientUser = await User.create({
     name,
     email: email.toLowerCase(),
     password,
     role: 'patient',
     assignedDoctorId: doctorExists._id,
+    isApproved: false,
+    approvalStatus: 'pending',
+    requestNote: req.body.requestNote || 'Requested enrollment into Vision Health Portal',
   });
 
-  // Automatically create medical profile record in Patient collection
+  // Automatically create medical profile record (marked inactive until approved)
   const patientRecord = await Patient.create({
     fullName: name,
     dateOfBirth: dateOfBirth || new Date('1975-01-01'),
@@ -147,18 +151,17 @@ exports.register = asyncHandler(async (req, res) => {
     baselineHbA1c: baselineHbA1c ? Number(baselineHbA1c) : 7.0,
     hasHypertension: Boolean(hasHypertension),
     assignedDoctorId: String(doctorExists._id),
+    isActive: false, // Inactive until approved
   });
 
   // Link profile to user
   patientUser.patientProfileId = patientRecord._id;
   await patientUser.save();
 
-  const token = patientUser.generateAuthToken();
-
   res.status(201).json({
     success: true,
-    message: 'Patient registered and successfully allotted to doctor.',
-    token,
+    isPendingApproval: true,
+    message: 'Patient registration request submitted to Administrator. Your account is pending review. Once approved, you will be able to log in to your portal.',
     user: {
       id: patientUser._id,
       name: patientUser.name,
@@ -167,6 +170,8 @@ exports.register = asyncHandler(async (req, res) => {
       assignedDoctorId: doctorExists._id,
       assignedDoctorName: doctorExists.name,
       patientProfileId: patientRecord._id,
+      isApproved: false,
+      approvalStatus: 'pending',
     },
   });
 });
@@ -254,6 +259,22 @@ exports.login = asyncHandler(async (req, res) => {
     });
   }
 
+  // ── Administrator Approval Guard for Clinicians & Patients ──
+  if (user.role !== 'admin' && !user.isApproved) {
+    if (user.approvalStatus === 'rejected') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account Access Declined: Your registration request was rejected by the system administrator.',
+      });
+    }
+
+    return res.status(403).json({
+      success: false,
+      isPendingApproval: true,
+      message: 'Registration Request Pending: Your account has been submitted but is awaiting Administrator review. You will be able to log in once approved by the Admin.',
+    });
+  }
+
   const token = user.generateAuthToken();
 
   // If patient, fetch assigned doctor details and linked profile
@@ -320,7 +341,7 @@ exports.getMe = asyncHandler(async (req, res) => {
  * @access  Public
  */
 exports.getDoctorsList = asyncHandler(async (req, res) => {
-  const doctors = await User.find({ role: 'doctor' })
+  const doctors = await User.find({ role: 'doctor', isApproved: true })
     .select('_id name specialization hospitalOrClinic')
     .sort({ name: 1 });
 

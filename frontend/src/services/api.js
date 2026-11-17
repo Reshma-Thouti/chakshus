@@ -184,6 +184,18 @@ export const getAdminScans = () =>
 export const reassignPatientDoctor = (patientId, newDoctorId) =>
   api.put(`/admin/patients/${patientId}/reassign`, { newDoctorId });
 
+/** Fetch all registration access requests */
+export const getAdminRequests = () =>
+  api.get('/admin/requests');
+
+/** Approve a pending doctor or patient registration request */
+export const approveAdminRequest = (userId) =>
+  api.put(`/admin/requests/${userId}/approve`);
+
+/** Reject a registration request */
+export const rejectAdminRequest = (userId) =>
+  api.put(`/admin/requests/${userId}/reject`);
+
 /** Admin archive/delete patient */
 export const deleteAdminPatient = (patientId) =>
   api.delete(`/admin/patients/${patientId}`);

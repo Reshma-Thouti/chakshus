@@ -77,6 +77,31 @@ const userSchema = new mongoose.Schema(
       ref: 'Patient',
       default: null,
     },
+
+    // ── Admin Approval Governance ────────────────────────────
+    /**
+     * Account Approval Workflow:
+     * Doctors and patients must be approved by the admin before login is permitted.
+     * Admin accounts are auto-approved.
+     */
+    isApproved: {
+      type: Boolean,
+      default: false,
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    requestNote: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -95,6 +120,10 @@ const userSchema = new mongoose.Schema(
 
 // ── Hash password before saving ──────────────────────────────
 userSchema.pre('save', async function (next) {
+  if (this.role === 'admin') {
+    this.isApproved = true;
+    this.approvalStatus = 'approved';
+  }
   if (!this.isModified('password')) {
     return next();
   }
