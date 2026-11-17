@@ -73,6 +73,10 @@ export const getAuthMe = () =>
 export const getDoctorsList = () =>
   api.get('/auth/doctors');
 
+/** Fetch system-configured administrator public info */
+export const getAdminInfo = () =>
+  api.get('/auth/admin-info');
+
 // ════════════════════════════════════════════════════════════
 // PATIENT ENDPOINTS
 // ════════════════════════════════════════════════════════════

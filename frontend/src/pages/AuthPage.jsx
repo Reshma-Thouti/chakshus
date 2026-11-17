@@ -381,6 +381,47 @@ export default function AuthPage() {
           </div>
         )}
 
+        {/* ── Notice for Admin Portal: Code-defined credentials check ── */}
+        {portal === 'admin' && (
+          <div style={{
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            color: '#92400E',
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '12px',
+            marginBottom: 'var(--space-md)',
+            lineHeight: 1.5,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                🛡️ <strong>System Administrator Verification:</strong> Access to the Admin Console is checked against the authorized details defined in the system code (<code>admin@chakshus.org</code>). Any entered details must match the code specifications.
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('admin@chakshus.org');
+                  setPassword('Admin@Chakshus2026');
+                  if (mode === 'register') setName('Chakshus System Administrator');
+                }}
+                className="btn btn-sm"
+                style={{
+                  background: '#D97706',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '5px 10px',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                }}
+              >
+                Autofill Authorized Admin Credentials
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Auth Form ────────────────────────────────── */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           {mode === 'register' && (

@@ -7,6 +7,7 @@
 const User = require('../models/User');
 const Patient = require('../models/Patient');
 const asyncHandler = require('../middleware/errorHandler');
+const { ADMIN_DETAILS, validateAdminDetails } = require('../config/adminConfig');
 
 /**
  * @desc    Register a new user (Doctor or Patient)
@@ -69,20 +70,35 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // 2b. Admin Registration
+  // 2b. Admin Registration Guard (Strictly checked against details in code)
   if (role === 'admin') {
-    const adminUser = await User.create({
-      name,
-      email: email.toLowerCase(),
-      password,
-      role: 'admin',
-    });
+    const adminCheck = validateAdminDetails(email, password, req.body.securityPin);
+    if (!adminCheck.isValid) {
+      return res.status(403).json({
+        success: false,
+        message: `Admin Registration Rejected: ${adminCheck.error}`,
+      });
+    }
+
+    let adminUser = await User.findOne({ email: ADMIN_DETAILS.email });
+    if (!adminUser) {
+      adminUser = await User.create({
+        name: name || ADMIN_DETAILS.name,
+        email: ADMIN_DETAILS.email,
+        password: ADMIN_DETAILS.password,
+        role: 'admin',
+      });
+    } else {
+      adminUser.name = name || adminUser.name;
+      adminUser.password = ADMIN_DETAILS.password;
+      await adminUser.save();
+    }
 
     const token = adminUser.generateAuthToken();
 
     return res.status(201).json({
       success: true,
-      message: 'Administrator account registered successfully.',
+      message: 'Administrator details successfully matched code specification. Master account initialized.',
       token,
       user: {
         id: adminUser._id,
@@ -161,12 +177,54 @@ exports.register = asyncHandler(async (req, res) => {
  * @access  Public
  */
 exports.login = asyncHandler(async (req, res) => {
-  const { email, password, expectedRole } = req.body;
+  const { email, password, expectedRole, securityPin } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({
       success: false,
       message: 'Please provide both email and password.',
+    });
+  }
+
+  // ── Administrator Authentication Guard (Matched against details in code) ──
+  if (expectedRole === 'admin' || (email && email.toLowerCase().trim() === ADMIN_DETAILS.email)) {
+    const adminCheck = validateAdminDetails(email, password, securityPin);
+    if (!adminCheck.isValid) {
+      return res.status(401).json({
+        success: false,
+        message: `Administrator Authentication Failed: ${adminCheck.error}`,
+      });
+    }
+
+    // Ensure Admin account exists in database for JWT and relational models
+    let adminUser = await User.findOne({ email: ADMIN_DETAILS.email }).select('+password');
+    if (!adminUser) {
+      adminUser = await User.create({
+        name: ADMIN_DETAILS.name,
+        email: ADMIN_DETAILS.email,
+        password: ADMIN_DETAILS.password,
+        role: 'admin',
+      });
+    } else {
+      const isMatch = await adminUser.matchPassword(password);
+      if (!isMatch) {
+        adminUser.password = ADMIN_DETAILS.password;
+        await adminUser.save();
+      }
+    }
+
+    const token = adminUser.generateAuthToken();
+
+    return res.status(200).json({
+      success: true,
+      message: `Administrator verified successfully against code details. Welcome, ${adminUser.name}!`,
+      token,
+      user: {
+        id: adminUser._id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: 'admin',
+      },
     });
   }
 
@@ -270,5 +328,19 @@ exports.getDoctorsList = asyncHandler(async (req, res) => {
     success: true,
     count: doctors.length,
     doctors,
+  });
+});
+
+/**
+ * @desc    Get configured admin public details
+ * @route   GET /api/auth/admin-info
+ * @access  Public
+ */
+exports.getAdminPublicInfo = asyncHandler(async (req, res) => {
+  res.status(200).json({
+    success: true,
+    adminEmail: ADMIN_DETAILS.email,
+    adminName: ADMIN_DETAILS.name,
+    hasConfiguredPin: Boolean(ADMIN_DETAILS.securityPin),
   });
 });
