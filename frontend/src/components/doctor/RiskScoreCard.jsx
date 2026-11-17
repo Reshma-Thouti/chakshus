@@ -104,11 +104,22 @@ export default function RiskScoreCard({ scan, imageUrl, patientName, onScanUpdat
   }
 
   if (scan.gradingSource === 'pending' || scan.drGrade === null) {
+    if (!scan._id) {
+      return (
+        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-2xl)' }}>
+          <div className="spinner" style={{ margin: '0 auto var(--space-md)' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Processing Retinal Microvasculature</h3>
+          <p className="text-sm text-muted">Medios AI inference pipeline running on PyTorch tensor...</p>
+        </div>
+      );
+    }
     return (
       <div className="card" style={{ textAlign: 'center', padding: 'var(--space-2xl)' }}>
-        <div className="spinner" style={{ margin: '0 auto var(--space-md)' }} />
-        <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Processing Retinal Microvasculature</h3>
-        <p className="text-sm text-muted">Medios AI inference pipeline running on PyTorch tensor...</p>
+        <div style={{ fontSize: '36px', marginBottom: '8px' }}>🔬</div>
+        <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--remidio-navy)' }}>Scan Queued for Review</h3>
+        <p className="text-sm text-muted" style={{ maxWidth: '380px', margin: '4px auto 0' }}>
+          This retinal fundus photograph is stored securely. Select another scan from the archive or re-upload to analyze with Medios AI.
+        </p>
       </div>
     );
   }
