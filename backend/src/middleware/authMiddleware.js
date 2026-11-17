@@ -25,19 +25,6 @@ exports.protect = asyncHandler(async (req, res, next) => {
 
   // If no token provided
   if (!token) {
-    // In development mode, if a mock doctor/patient header is passed, allow seamless testing
-    const devRole = req.headers['x-dev-role'];
-    const devUserId = req.headers['x-dev-userid'];
-    if (devRole && devUserId) {
-      req.user = {
-        _id: devUserId,
-        id: devUserId,
-        role: devRole,
-        name: req.headers['x-dev-username'] || 'Dev User',
-      };
-      return next();
-    }
-
     return res.status(401).json({
       success: false,
       message: 'Not authorized. Please log in to access this resource.',

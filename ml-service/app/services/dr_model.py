@@ -71,28 +71,45 @@ class DiabeticRetinopathyClassifier:
 
         if os.path.exists(resolved_path):
             try:
-                # 1. Build architecture
-                model = models.resnet18(weights=None)
-                num_ftrs = model.fc.in_features
-                model.fc = nn.Sequential(
-                    nn.Dropout(p=0.35),
-                    nn.Linear(num_ftrs, 128),
-                    nn.ReLU(),
-                    nn.Dropout(p=0.2),
-                    nn.Linear(128, 5),
-                )
-
-                # 2. Load trained weights
+                # 1. Load checkpoint
                 checkpoint = torch.load(resolved_path, map_location=cls._device, weights_only=True)
-                if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
-                    model.load_state_dict(checkpoint["model_state_dict"])
-                else:
-                    model.load_state_dict(checkpoint)
+                state_dict = checkpoint["model_state_dict"] if (isinstance(checkpoint, dict) and "model_state_dict" in checkpoint) else checkpoint
 
+                # 2. Dynamically determine architecture (ResNet-50 vs ResNet-18)
+                is_resnet50 = any("layer4.2" in k for k in state_dict.keys())
+
+                if is_resnet50:
+                    model = models.resnet50(weights=None)
+                    num_ftrs = model.fc.in_features
+                    if "fc.1.weight" in state_dict:
+                        model.fc = nn.Sequential(
+                            nn.Dropout(0.4),
+                            nn.Linear(num_ftrs, 256),
+                            nn.ReLU(),
+                            nn.Dropout(0.2),
+                            nn.Linear(256, 5),
+                        )
+                    else:
+                        model.fc = nn.Linear(num_ftrs, 5)
+                    cls.MODEL_VERSION = "pytorch-resnet50-dr-v1.0"
+                else:
+                    model = models.resnet18(weights=None)
+                    num_ftrs = model.fc.in_features
+                    model.fc = nn.Sequential(
+                        nn.Dropout(p=0.35),
+                        nn.Linear(num_ftrs, 128),
+                        nn.ReLU(),
+                        nn.Dropout(p=0.2),
+                        nn.Linear(128, 5),
+                    )
+                    cls.MODEL_VERSION = "pytorch-resnet18-dr-v1.0"
+
+                # 3. Load weights into detected architecture
+                model.load_state_dict(state_dict, strict=False)
                 model.to(cls._device)
                 model.eval()
                 cls._model = model
-                print(f"✅ Loaded PyTorch model weights from: {resolved_path} on {cls._device}")
+                print(f"✅ Loaded PyTorch {cls.MODEL_VERSION} weights from: {resolved_path} on {cls._device}")
                 return cls._model
             except Exception as e:
                 print(f"⚠️ Could not load PyTorch weights ({e}). Falling back to simulation.")

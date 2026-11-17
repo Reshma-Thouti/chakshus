@@ -135,6 +135,14 @@ app.use((err, req, res, next) => {
     });
   }
 
+  // Multer file filter or unsupported format errors
+  if (err.message && (err.message.includes('Invalid file type') || err.message.includes('Only JPEG, PNG'))) {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
   // Mongoose validation errors
   if (err.name === 'ValidationError') {
     const messages = Object.values(err.errors).map((e) => e.message);

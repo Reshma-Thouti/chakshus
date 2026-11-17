@@ -33,6 +33,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [securityPin, setSecurityPin] = useState('');
 
   // Doctor-specific registration fields
   const [specialization, setSpecialization] = useState('Ophthalmologist / Retina Specialist');
@@ -102,7 +103,7 @@ export default function AuthPage() {
 
     try {
       if (mode === 'login') {
-        const res = await login(email, password, portal);
+        const res = await login(email, password, portal, portal === 'admin' ? securityPin : undefined);
         setSuccessMsg(`Welcome, ${res.user.name}!`);
         if (res.user.role === 'admin') {
           navigate('/admin');
@@ -119,6 +120,7 @@ export default function AuthPage() {
             email,
             password,
             role: 'admin',
+            securityPin,
           });
           setSuccessMsg('Administrator account registered successfully!');
           navigate('/admin');
@@ -489,6 +491,27 @@ export default function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+
+          {/* Master Admin Security PIN */}
+          {portal === 'admin' && (
+            <div className="form-group">
+              <label className="label" style={{ color: '#D97706', fontWeight: 700 }}>
+                Master Security PIN *
+              </label>
+              <input
+                type="password"
+                className="input"
+                required
+                maxLength={8}
+                placeholder="Enter 4-digit Master Admin PIN"
+                value={securityPin}
+                onChange={(e) => setSecurityPin(e.target.value)}
+              />
+              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px', display: 'block' }}>
+                Required for system administrator authorization.
+              </span>
+            </div>
+          )}
 
           {/* Doctor Extra Fields on Register */}
           {mode === 'register' && portal === 'doctor' && (

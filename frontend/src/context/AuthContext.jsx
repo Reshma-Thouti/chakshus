@@ -43,8 +43,8 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
-  const login = useCallback(async (email, password, expectedRole) => {
-    const res = await loginUser({ email, password, expectedRole });
+  const login = useCallback(async (email, password, expectedRole, securityPin) => {
+    const res = await loginUser({ email, password, expectedRole, securityPin });
     if (res?.token && res?.user) {
       setToken(res.token);
       setUser(res.user);

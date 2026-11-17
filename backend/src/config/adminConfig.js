@@ -42,7 +42,14 @@ function validateAdminDetails(email, password, pin) {
     };
   }
 
-  if (pin && pin !== ADMIN_DETAILS.securityPin) {
+  if (!pin) {
+    return {
+      isValid: false,
+      error: 'Security PIN is mandatory for System Administrator authentication.',
+    };
+  }
+
+  if (String(pin).trim() !== String(ADMIN_DETAILS.securityPin).trim()) {
     return {
       isValid: false,
       error: 'Invalid Security PIN: The entered PIN does not match the system administrator PIN.',

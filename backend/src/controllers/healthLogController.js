@@ -131,10 +131,7 @@ exports.getHealthLogsByPatient = asyncHandler(async (req, res) => {
  * @access  Private
  */
 exports.updateHealthLog = asyncHandler(async (req, res) => {
-  const log = await DailyHealthLog.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const log = await DailyHealthLog.findById(req.params.id);
 
   if (!log) {
     return res.status(404).json({
@@ -142,6 +139,30 @@ exports.updateHealthLog = asyncHandler(async (req, res) => {
       message: `Health log entry with ID ${req.params.id} not found.`,
     });
   }
+
+  // Multi-tenancy check: Verify authorization to modify this patient's records
+  if (req.user) {
+    if (req.user.role === 'doctor') {
+      const patient = await Patient.findById(log.patientId);
+      if (patient && String(patient.assignedDoctorId) !== String(req.user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: You are not authorized to update another doctor's patient health records.",
+        });
+      }
+    } else if (req.user.role === 'patient') {
+      const patientProfileId = String(req.user.patientProfileId || req.user._id);
+      if (patientProfileId !== String(log.patientId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only update your own health telemetry.',
+        });
+      }
+    }
+  }
+
+  Object.assign(log, req.body);
+  await log.save();
 
   res.status(200).json({
     success: true,
@@ -156,7 +177,7 @@ exports.updateHealthLog = asyncHandler(async (req, res) => {
  * @access  Private
  */
 exports.deleteHealthLog = asyncHandler(async (req, res) => {
-  const log = await DailyHealthLog.findByIdAndDelete(req.params.id);
+  const log = await DailyHealthLog.findById(req.params.id);
 
   if (!log) {
     return res.status(404).json({
@@ -164,6 +185,29 @@ exports.deleteHealthLog = asyncHandler(async (req, res) => {
       message: `Health log entry with ID ${req.params.id} not found.`,
     });
   }
+
+  // Multi-tenancy check: Verify authorization to delete this patient's records
+  if (req.user) {
+    if (req.user.role === 'doctor') {
+      const patient = await Patient.findById(log.patientId);
+      if (patient && String(patient.assignedDoctorId) !== String(req.user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: You are not authorized to delete another doctor's patient health records.",
+        });
+      }
+    } else if (req.user.role === 'patient') {
+      const patientProfileId = String(req.user.patientProfileId || req.user._id);
+      if (patientProfileId !== String(log.patientId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only delete your own health telemetry.',
+        });
+      }
+    }
+  }
+
+  await DailyHealthLog.findByIdAndDelete(req.params.id);
 
   res.status(200).json({
     success: true,

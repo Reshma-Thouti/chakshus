@@ -26,6 +26,12 @@ import ScanUpload from '../components/doctor/ScanUpload.jsx';
 import RiskScoreCard from '../components/doctor/RiskScoreCard.jsx';
 import ProgressionChart from '../components/patient/ProgressionChart.jsx';
 
+const cleanDoctorName = (name) => {
+  if (!name) return 'Clinician';
+  const trimmed = name.trim();
+  return trimmed.replace(/^Dr\.?\s*/i, 'Dr. ');
+};
+
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -132,7 +138,7 @@ export default function DoctorDashboard() {
       const scan = result?.scan || result;
       setLatestResult(scan);
       setScans((prev) => [scan, ...prev]);
-      notify('success', `Medios AI Grading Complete: ${scan.drGradeLabel} (${Math.round((scan.confidenceScore || 0.9) * 100)}%)`);
+      notify('success', `Chakshus AI Grading Complete: ${scan.drGradeLabel} (${Math.round((scan.confidenceScore || 0.9) * 100)}%)`);
     } catch (err) {
       notify('error', `Scan analysis error: ${err.message}`);
       setLatestResult(null);
@@ -249,7 +255,7 @@ export default function DoctorDashboard() {
             <div>
               <h2 className="card-title" style={{ fontSize: '15px' }}>👥 My Patient Queue</h2>
               <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                Allotted strictly to Dr. {user?.name}
+                Allotted strictly to {cleanDoctorName(user?.name)}
               </div>
             </div>
             <span className="mono-tag" style={{ background: 'var(--remidio-cyan-light)', color: 'var(--remidio-cyan-hover)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
@@ -325,7 +331,7 @@ export default function DoctorDashboard() {
                       )}
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '3px' }}>
-                      Patient ID: <strong className="mono-tag">{selectedPatient._id || selectedPatient.id}</strong> &bull; Diabetes Duration: <strong>{selectedPatient.diabetesDurationYears} years</strong> &bull; Attending: <strong>Dr. {user?.name}</strong>
+                      Patient ID: <strong className="mono-tag">{selectedPatient._id || selectedPatient.id}</strong> &bull; Diabetes Duration: <strong>{selectedPatient.diabetesDurationYears} years</strong> &bull; Attending: <strong>{cleanDoctorName(user?.name)}</strong>
                     </div>
                   </div>
 
@@ -567,7 +573,7 @@ export default function DoctorDashboard() {
             </div>
 
             <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-md)' }}>
-              This patient will be allotted strictly under your clinical care (<strong>Dr. {user?.name}</strong>).
+              This patient will be allotted strictly under your clinical care (<strong>{cleanDoctorName(user?.name)}</strong>).
             </p>
 
             <form onSubmit={handleEnrollPatientSubmit} style={{ display: 'flex', flexDirection: 'column' }}>

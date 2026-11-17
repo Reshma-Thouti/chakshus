@@ -121,7 +121,7 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
     });
     mlResponse = response.data;
   } catch (mlError) {
-    console.warn(`[ML Microservice Notice]: ${mlError.message}. Activating embedded Medios AI clinical inference.`);
+    console.warn(`[ML Microservice Notice]: ${mlError.message}. Activating embedded Chakshus AI clinical inference.`);
 
     // Deterministic clinical AI evaluation based on fundus image signature and patient vitals
     const crypto = require('crypto');
@@ -150,7 +150,7 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
       grade_probabilities: probabilities,
       requires_urgent_review: predictedGrade >= 3 || baseConfidence < 0.65,
       clinical_recommendation: CLINICAL_RECOMMENDATIONS[predictedGrade],
-      source: 'medios-ai-embedded',
+      source: 'chakshus-ai-embedded',
     };
   }
 

@@ -391,20 +391,6 @@ exports.getDoctorsList = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Get configured admin public details
- * @route   GET /api/auth/admin-info
- * @access  Public
- */
-exports.getAdminPublicInfo = asyncHandler(async (req, res) => {
-  res.status(200).json({
-    success: true,
-    adminEmail: ADMIN_DETAILS.email,
-    adminName: ADMIN_DETAILS.name,
-    hasConfiguredPin: Boolean(ADMIN_DETAILS.securityPin),
-  });
-});
-
-/**
  * @desc    Change password for authenticated user (patient, doctor, or admin)
  * @route   PUT /api/auth/change-password
  * @access  Private

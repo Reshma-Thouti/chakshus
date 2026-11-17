@@ -519,7 +519,7 @@ export default function ScanUpload({ patientId, onUpload, isUploading = false })
         ) : selectedFile && !isRetinalVerified ? (
           <span>🚫 Cannot Analyze: Non-Retinal Image</span>
         ) : (
-          <span>⚡ Run Medios AI Screening</span>
+          <span>⚡ Run Chakshus AI Screening</span>
         )}
       </button>
 

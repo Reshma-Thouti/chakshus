@@ -25,6 +25,12 @@ import {
 } from '../services/api.js';
 import EyeSymbol from '../components/common/EyeSymbol.jsx';
 
+const cleanDoctorName = (name) => {
+  if (!name) return 'Clinician';
+  const trimmed = name.trim();
+  return trimmed.replace(/^Dr\.?\s*/i, 'Dr. ');
+};
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { notify } = useAppContext();
@@ -240,7 +246,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, letterSpacing: '-0.01em', color: '#FFFFFF' }}>
                 चक्षुस् Enterprise Administrator Console
               </h1>
               <span style={{
@@ -1014,7 +1020,7 @@ export default function AdminDashboard() {
                             fontSize: '12px',
                             fontWeight: 700,
                           }}>
-                            Dr. {pt.assignedDoctorName}
+                            {cleanDoctorName(pt.assignedDoctorName)}
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'center' }}>
@@ -1238,7 +1244,7 @@ export default function AdminDashboard() {
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
               Patient: <strong>{reassignModalPatient.fullName}</strong><br />
-              Current Doctor: <strong>Dr. {reassignModalPatient.assignedDoctorName}</strong>
+              Current Doctor: <strong>{cleanDoctorName(reassignModalPatient.assignedDoctorName)}</strong>
             </p>
 
             <form onSubmit={handleReassignDoctor} style={{ display: 'flex', flexDirection: 'column', marginTop: 'var(--space-md)' }}>
@@ -1252,7 +1258,7 @@ export default function AdminDashboard() {
                 >
                   {doctors.map((doc) => (
                     <option key={doc._id} value={doc._id}>
-                      Dr. {doc.name} ({doc.hospitalOrClinic} — {doc.specialization})
+                      {cleanDoctorName(doc.name)} ({doc.hospitalOrClinic} — {doc.specialization})
                     </option>
                   ))}
                 </select>
@@ -1328,7 +1334,7 @@ export default function AdminDashboard() {
 
               <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: 'var(--radius-sm)' }}>
                 <div style={{ color: 'var(--color-text-secondary)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700 }}>Attending Clinician</div>
-                <div style={{ fontWeight: 700, color: '#1E40AF', marginTop: '2px' }}>Dr. {selectedPatientForInspect.assignedDoctorName}</div>
+                <div style={{ fontWeight: 700, color: '#1E40AF', marginTop: '2px' }}>{cleanDoctorName(selectedPatientForInspect.assignedDoctorName)}</div>
               </div>
 
               <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: 'var(--radius-sm)' }}>
