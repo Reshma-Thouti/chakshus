@@ -403,3 +403,47 @@ exports.getAdminPublicInfo = asyncHandler(async (req, res) => {
     hasConfiguredPin: Boolean(ADMIN_DETAILS.securityPin),
   });
 });
+
+/**
+ * @desc    Change password for authenticated user (patient, doctor, or admin)
+ * @route   PUT /api/auth/change-password
+ * @access  Private
+ */
+exports.changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide both your current password and your new password.',
+    });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password must be at least 6 characters long.',
+    });
+  }
+
+  const user = await User.findById(req.user._id).select('+password');
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User account not found.' });
+  }
+
+  const isMatch = await user.matchPassword(currentPassword);
+  if (!isMatch) {
+    return res.status(401).json({
+      success: false,
+      message: 'The current password you entered is incorrect.',
+    });
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Your password has been successfully updated! Please use your new password next time you log in.',
+  });
+});

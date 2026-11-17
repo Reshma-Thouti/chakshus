@@ -13,7 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { getPatientById, getHealthLogs, createHealthLog, getPatientScans } from '../services/api.js';
+import { getPatientById, getHealthLogs, createHealthLog, getPatientScans, changePassword } from '../services/api.js';
 import BiometricForm from '../components/patient/BiometricForm.jsx';
 import ProgressionChart from '../components/patient/ProgressionChart.jsx';
 import EyeSymbol from '../components/common/EyeSymbol.jsx';
@@ -47,6 +47,11 @@ export default function PatientDashboard() {
   const [pageLoading,   setPageLoading]   = useState(true);
   const [submitting,    setSubmitting]    = useState(false);
   const [selectedScan,  setSelectedScan]  = useState(null);
+
+  // Change Password state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const targetPatientId = id || user?.patientProfileId || user?.id;
 
@@ -97,6 +102,31 @@ export default function PatientDashboard() {
     }
   };
 
+  // Handle password change
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      notify('error', 'New password and confirm password do not match.');
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      notify('error', 'New password must be at least 6 characters long.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const res = await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      notify('success', res?.message || 'Password successfully updated!');
+      setShowPasswordModal(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      notify('error', err.message || 'Failed to update password');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   if (pageLoading) {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-2xl)' }}>
@@ -115,12 +145,22 @@ export default function PatientDashboard() {
   return (
     <div>
       {/* ── Top Navigation ────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-md)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: 'var(--space-md)' }}>
         <button className="btn btn-outline btn-sm" onClick={() => navigate('/')}>
           ← Back to Overview
         </button>
-        <div className="mono-tag" style={{ color: 'var(--remidio-cyan-hover)' }}>
-          PATIENT OCULOMICS ID: {targetPatientId}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setShowPasswordModal(true)}
+            style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            🔒 Change Password
+          </button>
+          <div className="mono-tag" style={{ color: 'var(--remidio-cyan-hover)' }}>
+            PATIENT OCULOMICS ID: {targetPatientId}
+          </div>
         </div>
       </div>
 
@@ -387,6 +427,107 @@ export default function PatientDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── MODAL: CHANGE PASSWORD ── */}
+      {showPasswordModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(11, 25, 44, 0.65)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: 'var(--radius-lg)',
+            maxWidth: '440px',
+            width: '100%',
+            padding: 'var(--space-xl)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-md)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🔒</span>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--remidio-navy)', margin: 0 }}>
+                  Update Portal Password
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#94A3B8' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-md)' }}>
+              Set a personal password for your patient vision telemetry portal.
+            </p>
+
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="form-group">
+                <label className="label">Current Password *</label>
+                <input
+                  type="password"
+                  className="input"
+                  required
+                  placeholder="Enter your current password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="label">New Password *</label>
+                <input
+                  type="password"
+                  className="input"
+                  required
+                  placeholder="Minimum 6 characters"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="label">Confirm New Password *</label>
+                <input
+                  type="password"
+                  className="input"
+                  required
+                  placeholder="Re-enter new password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: 'var(--space-md)' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setShowPasswordModal(false)}
+                  disabled={changingPassword}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-cyan btn-sm"
+                  disabled={changingPassword}
+                  style={{ fontWeight: 700 }}
+                >
+                  {changingPassword ? 'Updating...' : 'Save New Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

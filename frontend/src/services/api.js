@@ -86,6 +86,10 @@ export const getDoctorsList = () =>
 export const getAdminInfo = () =>
   api.get('/auth/admin-info');
 
+/** Change password for logged-in user (patient, doctor, or admin) */
+export const changePassword = (currentPassword, newPassword) =>
+  api.put('/auth/change-password', { currentPassword, newPassword });
+
 // ════════════════════════════════════════════════════════════
 // PATIENT ENDPOINTS
 // ════════════════════════════════════════════════════════════
