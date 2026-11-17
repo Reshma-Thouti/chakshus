@@ -167,8 +167,8 @@ const clinicalScanSchema = new mongoose.Schema(
      */
     gradingSource: {
       type: String,
-      enum: ['ai', 'doctor', 'pending'],
-      default: 'pending',
+      enum: ['ai', 'doctor', 'pending', 'medios-ai-embedded'],
+      default: 'ai',
     },
 
     /**

@@ -154,14 +154,11 @@ exports.uploadAndAnalyzeScan = asyncHandler(async (req, res) => {
     drGradeLabel: mlResponse.dr_grade_label,
     confidenceScore: mlResponse.confidence_score,
     gradeProbabilities: mlResponse.grade_probabilities,
-    gradingSource: mlResponse.source || 'ai',
+    gradingSource: 'ai',
     gradedAt: new Date(),
     requiresUrgentReview: mlResponse.requires_urgent_review,
     clinicianNotes: mlResponse.clinical_recommendation,
     uploadedByDoctorId: doctorIdentifier,
-  });
-
-  await scanRecord.save();
   });
 
   let savedScan;
