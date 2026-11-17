@@ -68,6 +68,17 @@ app.use('/api/health-logs', healthLogRoutes);
 app.use('/api/scans', scanRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Root entry route
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    system: 'चक्षुस् (Chakshus) - Diabetic Retinopathy Diagnostic API',
+    mongoStatus: require('mongoose').connection.readyState === 1 ? 'connected' : 'connecting',
+    healthCheck: '/api/health',
+    endpoints: '/api',
+  });
+});
+
 // Health-check endpoint — used by monitoring & load balancers
 app.get('/api/health', (req, res) => {
   res.status(200).json({
