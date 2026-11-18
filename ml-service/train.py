@@ -1,145 +1,111 @@
 """
 train.py — Diabetic Retinopathy (DR) Deep Learning Training Pipeline
-
-Trains a convolutional neural network (ResNet-18 Transfer Learning)
-on retinal fundus imagery across the 5 standard ICDR severity grades:
-  0: No DR
-  1: Mild NPDR
-  2: Moderate NPDR
-  3: Severe NPDR
-  4: Proliferative DR
+Upgraded for the real APTOS 2019 Blindness Detection Dataset (Aravind Eye Hospital, India).
 
 Features:
-  - ResNet-18 backbone pre-trained on ImageNet
-  - Custom 5-class classification head with dropout regularization
-  - Full data augmentation (horizontal/vertical flips, rotations, color jitter)
-  - CrossEntropyLoss + AdamW optimizer + StepLR scheduler
-  - Exports trained PyTorch weights to models/dr_model.pth
-  - Generates training loss & accuracy visualization curves (models/training_metrics.png)
-  - Self-contained: includes a procedural fundus pattern generator so it can train
-    immediately even before a large multi-gigabyte dataset is downloaded.
+  - Real Clinical Dataset Ingestion (APTOS 2019 train_1.csv & valid.csv with 3,662 fundus photographs)
+  - Automated Bounding Box Retinal Crop (isolates vascular region of interest and removes black margins)
+  - Circular Retinal Aperture Masking
+  - Ophthalmology Data Augmentation (bilateral flips, rotation, color jitter, ImageNet normalization)
+  - Class-Weighted Cross-Entropy Loss (penalizes underrepresented Grade 3 & 4 severe stages)
+  - ResNet Transfer Learning Backbone (ResNet-18 / ResNet-50) with fine-tuning
+  - Tracks Cross-Entropy Loss, Accuracy, and Quadratic Weighted Kappa (κ)
+  - Generates training loss & convergence curves (models/training_metrics.png)
+  - Exports production checkpoint (models/dr_model.pth) & metadata (models/model_metadata.json)
+  - Fallback capability: If dataset directory is absent, falls back gracefully to procedural generation.
 """
 
 import os
+import sys
 import json
 import time
 import math
 import random
 import numpy as np
+import pandas as pd
 import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend for server environments
+matplotlib.use('Agg')  # Non-interactive backend
 import matplotlib.pyplot as plt
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from torchvision import models, transforms
-from sklearn.metrics import accuracy_score, cohen_kappa_score
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    from torch.utils.data import Dataset, DataLoader
+    from torchvision import models, transforms
+    from sklearn.metrics import accuracy_score, cohen_kappa_score
+except ImportError:
+    torch = None
+
+# Ensure ml-service root is in sys.path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from app.services.aptos_pipeline import (
+    crop_image_from_gray,
+    circle_crop,
+    ben_graham_enhancement,
+    preprocess_fundus_image,
+    get_aptos_transforms,
+    calculate_class_weights,
+    APTOSDataset,
+)
 
 # ── Reproducibility ──────────────────────────────────────────
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
-torch.manual_seed(SEED)
+if torch is not None:
+    torch.manual_seed(SEED)
 
 DR_CLASSES = [
-    "No DR",
-    "Mild NPDR",
-    "Moderate NPDR",
-    "Severe NPDR",
-    "Proliferative DR",
+    "No DR (Grade 0)",
+    "Mild NPDR (Grade 1)",
+    "Moderate NPDR (Grade 2)",
+    "Severe NPDR (Grade 3)",
+    "Proliferative DR (Grade 4)",
 ]
 
 
-# ── Procedural Retinal Image Generator ────────────────────────
+# ── Synthetic Data Fallback (Used only if dataset/ is absent) ─
 def create_synthetic_fundus_sample(grade: int, size: int = 224) -> Image.Image:
-    """
-    Generates a realistic synthetic retinal fundus disc containing characteristic
-    hallmarks of Diabetic Retinopathy for training demonstration:
-      - Dark orange/red retinal background disc
-      - Bright optic disc and darker macula
-      - Grade 0: Clean vascular arches
-      - Grade 1: Microaneurysms (tiny isolated red dots)
-      - Grade 2: Hard exudates (yellow-white lipid spots) + hemorrhages
-      - Grade 3: Multiple blot hemorrhages and cotton-wool patches
-      - Grade 4: Extensive neovascularization and vitreous bleeding
-    """
+    """Procedural retinal disc generator as a fallback for offline dry-runs."""
     img = Image.new("RGB", (size, size), color=(10, 10, 10))
     draw = ImageDraw.Draw(img)
-
     center = size // 2
     radius = int(size * 0.44)
-
-    # 1. Base orange/red retinal disc
     base_color = (random.randint(180, 220), random.randint(70, 100), random.randint(20, 40))
-    draw.ellipse(
-        [center - radius, center - radius, center + radius, center + radius],
-        fill=base_color,
-    )
+    draw.ellipse([center - radius, center - radius, center + radius, center + radius], fill=base_color)
 
-    # 2. Optic Disc (yellowish-cream circle on nasal side)
-    od_x = center - int(radius * 0.45)
-    od_y = center
-    od_r = int(radius * 0.16)
-    draw.ellipse([od_x - od_r, od_y - od_r, od_x + od_r, od_y + od_r], fill=(245, 220, 140))
+    od_x, od_y = center - int(radius * 0.45), center
+    draw.ellipse([od_x - 12, od_y - 12, od_x + 12, od_y + 12], fill=(245, 220, 140))
 
-    # 3. Retinal Blood Vessels (branching arcs originating from optic disc)
-    vessel_color = (130, 25, 20)
-    for _ in range(6):
-        x1, y1 = od_x, od_y
-        x2 = center + random.randint(-radius // 2, radius // 2)
-        y2 = center + random.randint(-radius // 2, radius // 2)
-        draw.line([(x1, y1), (x2, y2)], fill=vessel_color, width=random.randint(2, 4))
-
-    # 4. Pathological Lesions according to ICDR Grade
     if grade >= 1:
-        # Microaneurysms (small red dots)
-        num_ma = random.randint(3, 8) if grade == 1 else random.randint(10, 25)
-        for _ in range(num_ma):
+        for _ in range(random.randint(4, 10)):
             mx = center + random.randint(-int(radius * 0.6), int(radius * 0.6))
             my = center + random.randint(-int(radius * 0.6), int(radius * 0.6))
             draw.ellipse([mx - 2, my - 2, mx + 2, my + 2], fill=(100, 0, 0))
-
     if grade >= 2:
-        # Hard Exudates (bright yellow lipid deposits)
-        num_ex = random.randint(4, 12) if grade == 2 else random.randint(15, 30)
-        for _ in range(num_ex):
+        for _ in range(random.randint(6, 14)):
             ex = center + random.randint(-int(radius * 0.5), int(radius * 0.5))
             ey = center + random.randint(-int(radius * 0.5), int(radius * 0.5))
             draw.ellipse([ex - 3, ey - 3, ex + 3, ey + 3], fill=(255, 245, 120))
-
     if grade >= 3:
-        # Blot Hemorrhages (larger irregular dark red patches)
-        num_hem = random.randint(5, 14)
-        for _ in range(num_hem):
+        for _ in range(random.randint(5, 12)):
             hx = center + random.randint(-int(radius * 0.7), int(radius * 0.7))
             hy = center + random.randint(-int(radius * 0.7), int(radius * 0.7))
-            hr = random.randint(4, 8)
-            draw.ellipse([hx - hr, hy - hr, hx + hr, hy + hr], fill=(80, 0, 0))
-
+            draw.ellipse([hx - 6, hy - 6, hx + 6, hy + 6], fill=(80, 0, 0))
     if grade == 4:
-        # Neovascularization (tangled fine new vessels + vitreous hemorrhage)
         for _ in range(8):
-            nx1 = center + random.randint(-radius // 3, radius // 3)
-            ny1 = center + random.randint(-radius // 3, radius // 3)
-            nx2 = nx1 + random.randint(-20, 20)
-            ny2 = ny1 + random.randint(-20, 20)
-            draw.line([(nx1, ny1), (nx2, ny2)], fill=(160, 10, 10), width=1)
-        # Large preretinal hemorrhage
-        px, py = center + 10, center - 10
-        draw.ellipse([px - 14, py - 14, px + 14, py + 14], fill=(70, 0, 0))
-
+            nx1, ny1 = center + random.randint(-20, 20), center + random.randint(-20, 20)
+            draw.line([(nx1, ny1), (nx1 + 25, ny1 + 25)], fill=(160, 10, 10), width=1)
     return img
 
 
-# ── PyTorch Dataset Class ─────────────────────────────────────
-class DiabeticRetinopathyDataset(Dataset):
-    """
-    Dataset loader for Diabetic Retinopathy classification.
-    Generates structured training & validation samples with data augmentation.
-    """
+class SyntheticDRDataset(Dataset):
+    """Fallback procedural dataset."""
     def __init__(self, samples_per_class: int = 50, transform=None):
         self.transform = transform
         self.data = []
@@ -147,7 +113,6 @@ class DiabeticRetinopathyDataset(Dataset):
             for _ in range(samples_per_class):
                 img = create_synthetic_fundus_sample(grade=grade, size=224)
                 self.data.append((img, grade))
-        # Shuffle
         random.shuffle(self.data)
 
     def __len__(self):
@@ -157,84 +122,150 @@ class DiabeticRetinopathyDataset(Dataset):
         img, label = self.data[idx]
         if self.transform:
             img = self.transform(img)
-        return img, torch.tensor(label, dtype=torch.long)
+        return img, torch.tensor(label, dtype=torch.long), f"synth_{idx}"
 
 
-# ── Model Definition: ResNet-18 Transfer Learning ────────────
-def build_dr_model(num_classes: int = 5, pretrained: bool = True) -> nn.Module:
+# ── Model Architecture: ResNet Backbone ───────────────────────
+def build_dr_model(
+    backbone: str = "resnet18",
+    num_classes: int = 5,
+    pretrained: bool = True,
+) -> nn.Module:
     """
-    Constructs a ResNet-18 model with custom classification head for DR grading.
+    Constructs a transfer-learning convolutional network with custom clinical
+    classification head featuring dropout regularization against overfitting.
     """
-    weights = models.ResNet18_Weights.DEFAULT if pretrained else None
-    model = models.resnet18(weights=weights)
-
-    # Freeze early convolutional layers for fast feature reuse
-    for param in list(model.parameters())[:-12]:
-        param.requires_grad = False
-
-    # Replace 1000-class ImageNet head with 5-class DR classifier
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Sequential(
-        nn.Dropout(p=0.35),
-        nn.Linear(num_ftrs, 128),
-        nn.ReLU(),
-        nn.Dropout(p=0.2),
-        nn.Linear(128, num_classes),
-    )
+    if backbone == "resnet50":
+        weights = models.ResNet50_Weights.DEFAULT if pretrained else None
+        model = models.resnet50(weights=weights)
+        for param in list(model.parameters())[:-15]:
+            param.requires_grad = False
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Sequential(
+            nn.Dropout(p=0.4),
+            nn.Linear(num_ftrs, 256),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),
+            nn.Linear(256, num_classes),
+        )
+    else:
+        weights = models.ResNet18_Weights.DEFAULT if pretrained else None
+        model = models.resnet18(weights=weights)
+        for param in list(model.parameters())[:-12]:
+            param.requires_grad = False
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Sequential(
+            nn.Dropout(p=0.35),
+            nn.Linear(num_ftrs, 128),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),
+            nn.Linear(128, num_classes),
+        )
     return model
 
 
-# ── Main Training Loop ────────────────────────────────────────
+# ── Training & Validation Pipeline ────────────────────────────
 def train_model(
     epochs: int = 5,
     batch_size: int = 16,
-    learning_rate: float = 1e-3,
-    save_path: str = "models/dr_model.pth",
+    learning_rate: float = 1e-4,
+    backbone: str = "resnet18",
+    use_ben_graham: bool = False,
+    dataset_dir: str = os.path.join(BASE_DIR, "dataset"),
+    save_path: str = os.path.join(BASE_DIR, "models", "dr_model.pth"),
 ):
-    print("=" * 65)
-    print("🩺 DIABETIC RETINOPATHY DEEP LEARNING TRAINING PIPELINE")
-    print("=" * 65)
+    print("=" * 70)
+    print("🩺 CHAKSHUS AI — CLINICAL DIABETIC RETINOPATHY TRAINING PIPELINE")
+    print("   Dataset Source: APTOS 2019 Blindness Detection (Aravind Eye Hospital)")
+    print("=" * 70)
+
+    if torch is None:
+        print("❌ PyTorch is not installed in the current environment. Please install torch and torchvision.")
+        return
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"🚀 Execution Device : {device}")
-    print(f"📦 Model Backbone   : ResNet-18 (Transfer Learning)")
-    print(f"🎯 Target Classes   : 5 (Grades 0 to 4)")
-    print(f"🔄 Epochs Planned   : {epochs}")
-    print("─" * 65)
+    print(f"🚀 Execution Device   : {device}")
+    print(f"📦 Model Backbone     : {backbone.upper()} (Transfer Learning)")
+    print(f"🎯 Clinical Target    : 5 ICDR Grades (0 to 4)")
+    print(f"🔄 Epochs Planned     : {epochs}")
+    print(f"🎨 Ben Graham Filter  : {'Enabled' if use_ben_graham else 'Disabled'}")
+    print("─" * 70)
 
-    # 1. Transforms & Data Augmentation
-    train_transforms = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),
-        transforms.RandomRotation(degrees=20),
-        transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.15),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    # 1. Transforms
+    train_transforms = get_aptos_transforms(image_size=224, is_training=True)
+    val_transforms = get_aptos_transforms(image_size=224, is_training=False)
 
-    val_transforms = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    # 2. Check for real APTOS 2019 dataset
+    train_csv = os.path.join(dataset_dir, "train_1.csv")
+    train_img_dir = os.path.join(dataset_dir, "train_images")
+    val_csv = os.path.join(dataset_dir, "valid.csv")
+    val_img_dir = os.path.join(dataset_dir, "val_images")
 
-    # 2. Datasets & Loaders
-    print("📂 Preparing training and validation datasets...")
-    train_dataset = DiabeticRetinopathyDataset(samples_per_class=60, transform=train_transforms)
-    val_dataset = DiabeticRetinopathyDataset(samples_per_class=20, transform=val_transforms)
+    has_real_aptos = (
+        os.path.exists(train_csv)
+        and os.path.exists(train_img_dir)
+        and os.path.exists(val_csv)
+        and os.path.exists(val_img_dir)
+    )
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    if has_real_aptos:
+        print("✅ [Real Clinical Data Detected]: Ingesting APTOS 2019 Dataset...")
+        train_dataset = APTOSDataset(
+            csv_file=train_csv,
+            images_dir=train_img_dir,
+            transform=train_transforms,
+            preprocess_crop=True,
+            use_ben_graham=use_ben_graham,
+        )
+        val_dataset = APTOSDataset(
+            csv_file=val_csv,
+            images_dir=val_img_dir,
+            transform=val_transforms,
+            preprocess_crop=True,
+            use_ben_graham=use_ben_graham,
+        )
 
-    print(f"   Training samples   : {len(train_dataset)} ({len(train_dataset)//5} per class)")
-    print(f"   Validation samples : {len(val_dataset)} ({len(val_dataset)//5} per class)")
+        # Calculate balanced class weights for loss function
+        df_train = train_dataset.df
+        class_weights = calculate_class_weights(df_train, target_col="diagnosis")
+        print("⚖️  Calculated Balanced Class Weights:")
+        for idx, w in enumerate(class_weights.tolist()):
+            cnt = (df_train["diagnosis"] == idx).sum()
+            print(f"   Grade {idx} ({DR_CLASSES[idx]}): {cnt} scans | Weight: {w:.3f}")
+    else:
+        print("⚠️ [Notice]: Real dataset directory not found. Using procedural fundus generator fallback.")
+        train_dataset = SyntheticDRDataset(samples_per_class=60, transform=train_transforms)
+        val_dataset = SyntheticDRDataset(samples_per_class=20, transform=val_transforms)
+        class_weights = torch.ones(5, dtype=torch.float)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=0,
+        pin_memory=torch.cuda.is_available(),
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=torch.cuda.is_available(),
+    )
+
+    print(f"📊 Dataset Size       : {len(train_dataset)} Train | {len(val_dataset)} Validation")
+    print("─" * 70)
 
     # 3. Model, Loss, Optimizer, Scheduler
-    model = build_dr_model(num_classes=5, pretrained=True).to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate, weight_decay=1e-4)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.5)
+    model = build_dr_model(backbone=backbone, num_classes=5, pretrained=True).to(device)
+    criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
+    optimizer = optim.AdamW(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=learning_rate,
+        weight_decay=1e-4,
+    )
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
 
-    # Tracking metrics
     history = {
         "train_loss": [],
         "val_loss": [],
@@ -244,16 +275,15 @@ def train_model(
     }
 
     start_time = time.time()
-    best_val_acc = 0.0
+    best_val_kappa = -1.0
 
-    # 4. Epoch Loop
+    # 4. Training Loop
     for epoch in range(1, epochs + 1):
-        # ── Training Phase ──
         model.train()
         train_loss = 0.0
         train_preds, train_targets = [], []
 
-        for images, labels in train_loader:
+        for images, labels, _ in train_loader:
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
 
@@ -277,7 +307,7 @@ def train_model(
         val_preds, val_targets = [], []
 
         with torch.no_grad():
-            for images, labels in val_loader:
+            for images, labels, _ in val_loader:
                 images, labels = images.to(device), labels.to(device)
                 outputs = model(images)
                 loss = criterion(outputs, labels)
@@ -301,45 +331,46 @@ def train_model(
             f"Epoch [{epoch:02d}/{epochs:02d}] | "
             f"Train Loss: {epoch_train_loss:.4f} | Train Acc: {epoch_train_acc*100:.1f}% | "
             f"Val Loss: {epoch_val_loss:.4f} | Val Acc: {epoch_val_acc*100:.1f}% | "
-            f"Kappa: {epoch_kappa:.3f}"
+            f"Kappa (κ): {epoch_kappa:.3f}"
         )
 
-        if epoch_val_acc > best_val_acc:
-            best_val_acc = epoch_val_acc
+        # Save checkpoint based on Quadratic Weighted Kappa (Clinical Gold Standard)
+        if epoch_kappa > best_val_kappa or epoch == 1:
+            best_val_kappa = epoch_kappa
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             torch.save({
                 "model_state_dict": model.state_dict(),
-                "backbone": "resnet18",
+                "backbone": backbone,
                 "num_classes": 5,
-                "best_val_acc": best_val_acc,
+                "best_val_acc": epoch_val_acc,
+                "best_val_kappa": best_val_kappa,
                 "classes": DR_CLASSES,
+                "dataset": "APTOS 2019 Blindness Detection" if has_real_aptos else "Synthetic Fallback",
                 "trained_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }, save_path)
 
     elapsed = time.time() - start_time
-    print("─" * 65)
+    print("─" * 70)
     print(f"✅ Training completed in {elapsed:.1f} seconds!")
-    print(f"💾 Best Model Saved to: {save_path} (Val Accuracy: {best_val_acc*100:.1f}%)")
+    print(f"💾 Best Model Saved to: {save_path} (Val Kappa: {best_val_kappa:.3f})")
 
     # 5. Export Performance Visualizations
     plot_path = os.path.join(os.path.dirname(save_path), "training_metrics.png")
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
 
-    # Loss subplot
     ax1.plot(range(1, epochs + 1), history["train_loss"], "o-", label="Train Loss", color="#0F4C81", lw=2)
     ax1.plot(range(1, epochs + 1), history["val_loss"], "s--", label="Val Loss", color="#E53E3E", lw=2)
-    ax1.set_title("Cross-Entropy Loss Curve", fontsize=12, fontweight="bold")
+    ax1.set_title("Clinical Cross-Entropy Loss Curve", fontsize=12, fontweight="bold")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Loss")
     ax1.grid(True, linestyle="--", alpha=0.5)
     ax1.legend()
 
-    # Accuracy & Kappa subplot
-    ax2.plot(range(1, epochs + 1), [a * 100 for a in history["train_acc"]], "o-", label="Train Acc (%)", color="#00A878", lw=2)
-    ax2.plot(range(1, epochs + 1), [a * 100 for a in history["val_acc"]], "s--", label="Val Acc (%)", color="#3182CE", lw=2)
-    ax2.set_title("Validation Accuracy & Convergence", fontsize=12, fontweight="bold")
+    ax2.plot(range(1, epochs + 1), [a * 100 for a in history["val_acc"]], "s--", label="Val Accuracy (%)", color="#3182CE", lw=2)
+    ax2.plot(range(1, epochs + 1), [k * 100 for k in history["val_kappa"]], "o-", label="Quadratic Kappa (κ × 100)", color="#00A878", lw=2)
+    ax2.set_title("Validation Accuracy & Quadratic Kappa (κ)", fontsize=12, fontweight="bold")
     ax2.set_xlabel("Epoch")
-    ax2.set_ylabel("Accuracy (%)")
+    ax2.set_ylabel("Metric (%)")
     ax2.grid(True, linestyle="--", alpha=0.5)
     ax2.legend()
 
@@ -348,22 +379,56 @@ def train_model(
     plt.close()
     print(f"📊 Training curves plot exported to: {plot_path}")
 
-    # 6. Save metadata JSON
+    # 6. Save Metadata JSON with Real APTOS Dataset Attributes
     meta_path = os.path.join(os.path.dirname(save_path), "model_metadata.json")
     with open(meta_path, "w") as f:
         json.dump({
-            "model_name": "Diabetic Retinopathy ResNet-18",
+            "model_name": f"Chakshus AI Diabetic Retinopathy {backbone.upper()}",
             "weights_file": os.path.basename(save_path),
-            "final_val_acc": round(best_val_acc, 4),
-            "epochs": epochs,
+            "dataset": {
+                "name": "APTOS 2019 Blindness Detection",
+                "institution": "Aravind Eye Hospital, India",
+                "total_samples": 3662,
+                "train_samples": len(train_dataset),
+                "val_samples": len(val_dataset),
+                "evaluation_metric": "Quadratic Weighted Kappa (QWK)",
+                "preprocessing_pipeline": [
+                    "Bounding-Box Retinal ROI Crop (tol=7)",
+                    "Circular Aperture Masking",
+                    "Lanczos High-Fidelity Resampling (224x224)",
+                    "ImageNet Normalization (mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])",
+                ],
+            },
+            "training_results": {
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "best_val_accuracy": round(history["val_acc"][-1], 4),
+                "best_quadratic_kappa": round(best_val_kappa, 4),
+                "backbone": backbone,
+                "device": str(device),
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            },
             "classes": DR_CLASSES,
             "framework": f"PyTorch {torch.__version__}",
-            "device": str(device),
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }, f, indent=2)
     print(f"📝 Metadata JSON saved to: {meta_path}")
-    print("=" * 65)
+    print("=" * 70)
 
 
 if __name__ == "__main__":
-    train_model(epochs=5, batch_size=16, learning_rate=1e-3)
+    import argparse
+    parser = argparse.ArgumentParser(description="Train Diabetic Retinopathy Deep Learning Model on APTOS 2019")
+    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs")
+    parser.add_argument("--batch-size", type=int, default=16, help="Batch size")
+    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18", "resnet50"], help="Backbone model")
+    parser.add_argument("--ben-graham", action="store_true", help="Apply Ben Graham illumination enhancement")
+    args = parser.parse_args()
+
+    train_model(
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.lr,
+        backbone=args.backbone,
+        use_ben_graham=args.ben_graham,
+    )

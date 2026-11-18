@@ -27,6 +27,8 @@ build/
 
 # ── Uploaded retinal scan images (large binary files) ────────
 backend/uploads/
+ml-service/dataset/
+report_inputs/
 
 # ── OS artifacts ─────────────────────────────────────────────
 .DS_Store
